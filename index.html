@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Smart Timetable Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.umd.js"></script>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
+        rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css" rel="stylesheet" />
+    <link href="style.css" rel="stylesheet" />
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <style>
+        /* Global Styles */
+        body {
+            background: linear-gradient(-45deg, #ffb347, #ff7eb3, #a259ff, #6E45E2);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        @keyframes gradientBG {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: #6b7280;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app-root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useCallback, createElement, Fragment } = React;
+        const API_URL = "/api";
+
+        // --- Animation Setup ---
+        let motion, AnimatePresence;
+        const setupAnimation = () => {
+            if (window.FramerMotion) {
+                ({ motion, AnimatePresence } = window.FramerMotion);
+            } else {
+                motion = { div: 'div', button: 'button' };
+                AnimatePresence = ({ children }) => <>{children}</>;
+            }
+        };
+
+        // --- Hooks ---
+        const useApi = () => {
+            const [isLoading, setIsLoading] = useState(false);
+            const [error, setError] = useState(null);
+            const callApi = useCallback(async (endpoint, method = 'GET', body = null) => {
+                setIsLoading(true);
+                setError(null);
+                try {
+                    const options = { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : null };
+                    const response = await fetch(`${API_URL}/${endpoint}`, options);
+                    if (!response.ok) {
+                        let errorMsg = `HTTP error! status: ${response.status}`;
+                        try { const errData = await response.json(); errorMsg = errData.error || errorMsg; } catch (e) { }
+                        if (response.status === 404 && endpoint.startsWith('timetables/')) return { timetable: [] };
+                        throw new Error(errorMsg);
+                    }
+                    if (response.status === 204) return { success: true };
+                    return await response.json();
+                } catch (e) { setError(e.message); throw e; }
+                finally { setIsLoading(false); }
+            }, []);
+            return { isLoading, error, setError, callApi };
+        };
+
+        // --- Components ---
+        const StyledButton = ({ children, color = 'default', className = '', ...props }) => (
+            <button {...props} className={`push-button ${className}`} data-color={color}>
+                <div className="button-outer"><div className="button-inner"><span>{children}</span></div></div>
+            </button>
+        );
+
+        const ActionButton = ({ children, onClick, disabled, color = 'lime' }) => (
+            <button onClick={onClick} disabled={disabled} className="action-button" data-color={color}>
+                <span><span className="container"><span className="primary"></span><span className="complimentary"></span></span></span>
+                <span>{children}</span>
+            </button>
+        );
+
+        const SparklyButton = ({ children, onClick, disabled, className = '', clr = 260 }) => (
+            <button onClick={onClick} disabled={disabled} className={`sparkles ${className}`} style={{ '--clr': clr }}><span>{children}</span></button>
+        );
+
+        const SmallIconButton = ({ onClick, icon, title, colorClass = 'text-gray-500 hover:text-gray-700' }) => (
+            <button onClick={onClick} title={title} className={`p-1 rounded-full transition-colors ${colorClass}`}><i className={`bx ${icon} text-lg`}></i></button>
+        );
+
+        const Header = ({ user, handleLogout }) => (
+            <motion.div initial={{ y: -100 }} animate={{ y: 0 }} className="bg-white/90 backdrop-blur shadow-md rounded-lg p-4 mb-8 flex justify-between items-center">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-800">Smart Timetable</h1>
+                    <p className="text-gray-500">Hello, <span className="font-semibold text-indigo-600">{user.name}</span> ({user.role})</p>
+                </div>
+                <StyledButton onClick={handleLogout} color="red">Logout</StyledButton>
+            </motion.div>
+        );
+
+        // --- Profile Modal ---
+        const ProfileModal = ({ isOpen, onClose, user, extraData }) => {
+            if (!isOpen || !user) return null;
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="modal-content text-center" onClick={e => e.stopPropagation()}>
+                        <i className='bx bx-x modal-close' onClick={onClose}></i>
+                        <div className="w-24 h-24 bg-indigo-100 rounded-full mx-auto flex items-center justify-center mb-4">
+                            <i className='bx bxs-user text-5xl text-indigo-500'></i>
+                        </div>
+                        <h2 className="text-2xl font-bold text-gray-800">{user.name}</h2>
+                        <p className="text-indigo-600 font-medium capitalize">{user.role}</p>
+
+                        <div className="mt-6 text-left space-y-3 bg-gray-50 p-4 rounded-lg">
+                            <div className="flex justify-between border-b pb-2">
+                                <span className="text-gray-500">Email:</span>
+                                <span className="font-medium">{user.email}</span>
+                            </div>
+                            {user.department_name && (
+                                <div className="flex justify-between border-b pb-2">
+                                    <span className="text-gray-500">Department:</span>
+                                    <span className="font-medium">{user.department_name}</span>
+                                </div>
+                            )}
+                            {user.class_name && (
+                                <div className="flex justify-between border-b pb-2">
+                                    <span className="text-gray-500">Class:</span>
+                                    <span className="font-medium">{user.class_name} - {user.division_name}</span>
+                                </div>
+                            )}
+                            {extraData && Object.entries(extraData).map(([key, val]) => (
+                                <div key={key} className="flex justify-between border-b pb-2">
+                                    <span className="text-gray-500 capitalize">{key}:</span>
+                                    <span className="font-medium">{val}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </motion.div>
+                </div>
+            );
+        };
+
+        // --- Edit Modal (Generic) ---
+        const EditModal = ({ isOpen, onClose, item, onSave }) => {
+            const [formData, setFormData] = useState({});
+            const [loading, setLoading] = useState(false);
+
+            useEffect(() => {
+                if (item && item.data) setFormData({ ...item.data });
+            }, [item]);
+
+            if (!isOpen || !item) return null;
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+
+                // Handle number conversions for courses
+                let dataToSave = { ...formData };
+                if (item.type === 'course') {
+                    dataToSave.lectures_per_week = parseInt(formData.lectures_per_week) || 0;
+                    dataToSave.practicals_per_week = parseInt(formData.practicals_per_week) || 0;
+                    dataToSave.lecture_times = ""; // Ensure cleared if not used
+                    dataToSave.practical_times = "";
+                }
+
+                await onSave(item.type, item.data.id, dataToSave);
+                setLoading(false);
+                onClose();
+            };
+
+            const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="modal-content" onClick={e => e.stopPropagation()}>
+                        <i className='bx bx-x modal-close' onClick={onClose}></i>
+                        <h2 className="text-2xl font-bold mb-4 text-indigo-700 capitalize">Edit {item.type}</h2>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            {/* Fields based on type */}
+                            {item.type === 'user' && (
+                                <Fragment>
+                                    <div><label className="block text-sm font-medium">Name</label><input className="w-full p-2 border rounded" name="name" value={formData.name || ''} onChange={handleChange} required /></div>
+                                    <div><label className="block text-sm font-medium">Email</label><input className="w-full p-2 border rounded" name="email" value={formData.email || ''} onChange={handleChange} required type="email" /></div>
+                                    <div><label className="block text-sm font-medium">Role</label>
+                                        <select className="w-full p-2 border rounded" name="role" value={formData.role || ''} onChange={handleChange}>
+                                            <option value="student">Student</option>
+                                            <option value="lecturer">Lecturer</option>
+                                            <option value="admin">Admin</option>
+                                        </select>
+                                    </div>
+                                </Fragment>
+                            )}
+                            {item.type === 'course' && (
+                                <Fragment>
+                                    <div><label className="block text-sm font-medium">Subject Name</label><input className="w-full p-2 border rounded" name="name" value={formData.name || ''} onChange={handleChange} required /></div>
+                                    <div><label className="block text-sm font-medium">No. of Lectures</label><input className="w-full p-2 border rounded" name="lectures_per_week" type="number" min="0" value={formData.lectures_per_week || 0} onChange={handleChange} required /></div>
+                                    <div><label className="block text-sm font-medium">No. of Practicals</label><input className="w-full p-2 border rounded" name="practicals_per_week" type="number" min="0" value={formData.practicals_per_week || 0} onChange={handleChange} /></div>
+                                </Fragment>
+                            )}
+                            <StyledButton type="submit" disabled={loading} color="blue" className="w-full">{loading ? 'Saving...' : 'Save Changes'}</StyledButton>
+                        </form>
+                    </motion.div>
+                </div>
+            );
+        };
+
+        // --- Customize Modal (Enhanced) ---
+        const CustomizeModal = ({ isOpen, onClose, timetable, allData, classId, divisionId, onUpdate, initialSession }) => {
+            const [selectedSessionIdx, setSelectedSessionIdx] = useState('');
+            const [targetTimeslotId, setTargetTimeslotId] = useState('');
+            const [targetRoomId, setTargetRoomId] = useState('');
+            const { isLoading, error, callApi } = useApi();
+
+            useEffect(() => {
+                if (isOpen) {
+                    if (initialSession) {
+                        const idx = timetable.findIndex(
+                            entry => entry.course_id == initialSession.course_id && entry.timeslot_id == initialSession.timeslot_id
+                        );
+                        setSelectedSessionIdx(idx >= 0 ? idx : '');
+                        const currentRoom = allData.rooms?.find(r => r.name === initialSession.room);
+                        if (currentRoom) setTargetRoomId(currentRoom.id);
+                    } else {
+                        setSelectedSessionIdx('');
+                        setTargetRoomId('');
+                    }
+                    setTargetTimeslotId('');
+                }
+            }, [isOpen, initialSession, timetable, allData.rooms]);
+
+            const formatTime = (timeStr) => {
+                if (!timeStr) return "";
+                const parts = timeStr.split(':');
+                return `${parts[0]}:${parts[1]}`;
+            };
+
+            const sessionOptions = useMemo(() => {
+                if (!timetable || !allData.timeslots) return [];
+                return timetable.map((entry, idx) => {
+                    const ts = allData.timeslots.find(t => t.id === entry.timeslot_id);
+                    if (!ts) return null;
+                    return {
+                        idx,
+                        label: `${entry.course_name} (${entry.teacher}) - ${ts.day_of_week} ${formatTime(ts.start_time)}`,
+                        entry
+                    };
+                }).filter(Boolean).sort((a, b) => a.label.localeCompare(b.label));
+            }, [timetable, allData]);
+
+            const groupedSlots = useMemo(() => {
+                if (!allData.timeslots) return {};
+                const groups = {};
+                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                allData.timeslots.forEach(ts => {
+                    if (!groups[ts.day_of_week]) groups[ts.day_of_week] = [];
+                    groups[ts.day_of_week].push(ts);
+                });
+                const sortedGroups = {};
+                days.forEach(day => {
+                    if (groups[day]) sortedGroups[day] = groups[day];
+                });
+                return sortedGroups;
+            }, [allData.timeslots]);
+
+            if (!isOpen) return null;
+
+            const handleSave = async () => {
+                if (selectedSessionIdx === '' || !targetTimeslotId) return;
+                const entryToMove = timetable[selectedSessionIdx];
+
+                let roomName = null;
+                if (targetRoomId) {
+                    const foundRoom = allData.rooms?.find(r => r.id == targetRoomId);
+                    if (foundRoom) roomName = foundRoom.name;
+                }
+
+                try {
+                    const result = await callApi('timetable/customize', 'PUT', {
+                        class_id: classId,
+                        division_id: divisionId,
+                        entry_to_move: entryToMove,
+                        new_timeslot_id: targetTimeslotId,
+                        new_room_name: roomName
+                    });
+                    onUpdate(result.timetable);
+                    onClose();
+                } catch (err) { }
+            };
+
+            const selectedSessionDetails = selectedSessionIdx !== '' ? timetable[selectedSessionIdx] : null;
+            let currentSlotStr = "";
+            if (selectedSessionDetails) {
+                const ts = allData.timeslots?.find(t => t.id === selectedSessionDetails.timeslot_id);
+                if (ts) currentSlotStr = `${ts.day_of_week}, ${formatTime(ts.start_time)} - ${formatTime(ts.end_time)}`;
+            }
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <i className='bx bx-x modal-close' onClick={onClose}></i>
+                        <h2 className="text-2xl font-bold mb-1 text-indigo-700">Reschedule Session</h2>
+                        <p className="text-gray-500 mb-6 text-sm">Permanently move a class session to a new time or room.</p>
+
+                        <div className="space-y-6">
+                            <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+                                <label className="block text-xs font-bold text-indigo-800 uppercase tracking-wide mb-2">Session to Move</label>
+                                {!initialSession ? (
+                                    <select className="w-full p-2 border rounded bg-white shadow-sm" value={selectedSessionIdx} onChange={e => setSelectedSessionIdx(e.target.value)}>
+                                        <option value="">-- Select a Session --</option>
+                                        {sessionOptions.map(opt => <option key={opt.idx} value={opt.idx}>{opt.label}</option>)}
+                                    </select>
+                                ) : (
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <div className="font-bold text-lg text-gray-800">{selectedSessionDetails?.course_name}</div>
+                                            <div className="text-sm text-gray-600">{selectedSessionDetails?.teacher}</div>
+                                        </div>
+                                        <div className="text-right text-xs text-gray-500 bg-white px-3 py-1 rounded shadow-sm border">
+                                            <div className="font-semibold text-indigo-600">Current Slot</div>
+                                            {currentSlotStr}
+                                            <div className="mt-1">Room: {selectedSessionDetails?.room}</div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex justify-center -my-2 text-indigo-300">
+                                <i className='bx bx-down-arrow-alt text-4xl animate-bounce'></i>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">New Day & Time</label>
+                                    <select className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow" value={targetTimeslotId} onChange={e => setTargetTimeslotId(e.target.value)}>
+                                        <option value="">-- Select New Slot --</option>
+                                        {Object.entries(groupedSlots).map(([day, slots]) => (
+                                            <optgroup key={day} label={day}>
+                                                {slots.sort((a, b) => a.start_time.localeCompare(b.start_time)).map(ts => (
+                                                    <option key={ts.id} value={ts.id}>
+                                                        {formatTime(ts.start_time)} - {formatTime(ts.end_time)} ({ts.type})
+                                                    </option>
+                                                ))}
+                                            </optgroup>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">New Room (Optional)</label>
+                                    <select className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow" value={targetRoomId} onChange={e => setTargetRoomId(e.target.value)}>
+                                        <option value="">-- Keep Original Room --</option>
+                                        {allData.rooms?.map(r => <option key={r.id} value={r.id}>{r.name} ({r.type}, Cap: {r.capacity})</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {error && <div className="p-3 bg-red-100 text-red-700 rounded text-sm flex items-center gap-2"><i className='bx bx-error-circle'></i> {error}</div>}
+
+                            <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                                <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded transition-colors">Cancel</button>
+                                <StyledButton onClick={handleSave} disabled={isLoading || !selectedSessionIdx || !targetTimeslotId} color="indigo" className="px-6">
+                                    {isLoading ? 'Moving...' : 'Confirm Move'}
+                                </StyledButton>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Shared Attendance Stats Viewer ---
+        const AttendanceStatsViewer = ({ allData, user }) => {
+            const [selectedStream, setSelectedStream] = useState('');
+            const [selectedDepartment, setSelectedDepartment] = useState('');
+            const [selectedClass, setSelectedClass] = useState('');
+            const [selectedDivision, setSelectedDivision] = useState('');
+            const [studentStats, setStudentStats] = useState([]);
+            const { isLoading, callApi } = useApi();
+
+            const filteredDepartments = useMemo(() => allData.departments?.filter(d => d.stream_id == selectedStream) || [], [selectedStream, allData.departments]);
+            const filteredClasses = useMemo(() => allData.classes?.filter(c => c.department_id == selectedDepartment) || [], [selectedDepartment, allData.classes]);
+
+            const handleShow = async () => {
+                if (!selectedClass || !selectedDivision) { alert("Please select Class and Division"); return; }
+                try {
+                    let endpoint = `attendance/stats?class_id=${selectedClass}&division_id=${selectedDivision}`;
+                    if (user && user.role === 'lecturer') {
+                        endpoint += `&teacher_id=${user.id}`;
+                    }
+                    const data = await callApi(endpoint);
+                    setStudentStats(data.stats || []);
+                } catch (e) { }
+            };
+
+            const groupedStats = useMemo(() => {
+                const groups = {};
+                studentStats.forEach(stat => {
+                    if (!groups[stat.student_id]) {
+                        groups[stat.student_id] = { name: stat.student_name, courses: [], total_lec: 0, total_att: 0 };
+                    }
+                    groups[stat.student_id].courses.push(stat);
+                    groups[stat.student_id].total_lec += Number(stat.total_lectures);
+                    groups[stat.student_id].total_att += Number(stat.attended_lectures);
+                });
+                return Object.values(groups).map(g => ({
+                    ...g,
+                    overall_percent: g.total_lec > 0 ? ((g.total_att / g.total_lec) * 100).toFixed(2) : 0
+                }));
+            }, [studentStats]);
+
+            return (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-6">
+                    <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                        <h3 className="text-xl font-bold mb-4">View Student Attendance</h3>
+                        <div className="flex flex-wrap gap-4 items-end">
+                            <div className="w-full sm:w-auto">
+                                <label className="block text-xs text-gray-500 mb-1">Stream</label>
+                                <select value={selectedStream} onChange={e => { setSelectedStream(e.target.value); setSelectedDepartment(''); }} className="p-2 border rounded-md w-full"><option value="">Select Stream</option>{allData.streams?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+                            </div>
+                            <div className="w-full sm:w-auto">
+                                <label className="block text-xs text-gray-500 mb-1">Department</label>
+                                <select value={selectedDepartment} onChange={e => { setSelectedDepartment(e.target.value); setSelectedClass(''); }} disabled={!selectedStream} className="p-2 border rounded-md w-full disabled:bg-gray-100"><option value="">Select Department</option>{filteredDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+                            </div>
+                            <div className="w-full sm:w-auto">
+                                <label className="block text-xs text-gray-500 mb-1">Class</label>
+                                <select value={selectedClass} onChange={e => { setSelectedClass(e.target.value); setSelectedDivision(''); }} disabled={!selectedDepartment} className="p-2 border rounded-md w-full disabled:bg-gray-100"><option value="">Select Class</option>{filteredClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+                            </div>
+                            <div className="w-full sm:w-auto">
+                                <label className="block text-xs text-gray-500 mb-1">Division</label>
+                                <select value={selectedDivision} onChange={e => setSelectedDivision(e.target.value)} disabled={!selectedClass} className="p-2 border rounded-md w-full disabled:bg-gray-100"><option value="">Select Division</option>{allData.divisions?.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+                            </div>
+                            <StyledButton onClick={handleShow} disabled={isLoading} color="indigo">Show</StyledButton>
+                        </div>
+                    </div>
+
+                    {groupedStats.length > 0 && (
+                        <div className="bg-white p-6 rounded-lg shadow-md overflow-x-auto">
+                            <table className="min-w-full text-sm text-left divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-4 py-3">Student Name</th>
+                                        <th className="px-4 py-3 text-center">Overall %</th>
+                                        <th className="px-4 py-3">Subject Breakdown</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {groupedStats.map((student, i) => (
+                                        <tr key={i} className="hover:bg-gray-50">
+                                            <td className="px-4 py-3 font-medium">{student.name}</td>
+                                            <td className="px-4 py-3 text-center">
+                                                <span className={`px-2 py-1 rounded text-xs font-bold ${student.overall_percent >= 75 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                    {student.overall_percent}%
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex flex-wrap gap-2">
+                                                    {student.courses.map((c, j) => (
+                                                        <div key={j} className="text-xs border rounded px-2 py-1 bg-gray-50" title={`Attended: ${c.attended_lectures}/${c.total_lectures}`}>
+                                                            <span className="font-semibold text-gray-600">{c.course_name}:</span>
+                                                            <span className={`ml-1 ${c.percentage < 75 ? 'text-red-600 font-bold' : 'text-green-600'}`}>{c.percentage}%</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                    {studentStats.length === 0 && !isLoading && selectedClass && <p className="text-center text-gray-500 mt-4">No attendance data found for this selection.</p>}
+                </motion.div>
+            );
+        };
+
+        // --- Components ---
+        const SubstitutionManager = ({ allData }) => {
+            const [substitutions, setSubstitutions] = useState([]);
+            const [formData, setFormData] = useState({ date: '', absent_teacher_id: '', timeslot_id: '', course_id: '', class_id: '', division_id: '', proxy_teacher_id: '' });
+            const [teacherSchedule, setTeacherSchedule] = useState([]);
+            const { isLoading, callApi } = useApi();
+
+            const fetchSubs = useCallback(async () => {
+                try {
+                    const data = await callApi('substitutions');
+                    setSubstitutions(data.substitutions || []);
+                } catch (e) { }
+            }, [callApi]);
+
+            useEffect(() => { fetchSubs(); }, [fetchSubs]);
+
+            useEffect(() => {
+                if (formData.absent_teacher_id) {
+                    callApi(`teacher/schedule/${formData.absent_teacher_id}`).then(data => {
+                        setTeacherSchedule(data.schedule || []);
+                    });
+                } else {
+                    setTeacherSchedule([]);
+                }
+            }, [formData.absent_teacher_id, callApi]);
+
+            const availableClasses = useMemo(() => {
+                if (!formData.date || !allData.timeslots || teacherSchedule.length === 0) return [];
+                const dateObj = new Date(formData.date);
+                const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+                return teacherSchedule.filter(s => {
+                    const ts = allData.timeslots.find(t => t.id === s.timeslot_id);
+                    return ts && ts.day_of_week === dayName;
+                }).map((s, idx) => {
+                    const ts = allData.timeslots.find(t => t.id === s.timeslot_id);
+                    return { ...s, uniqueId: idx, timeslot: ts };
+                });
+            }, [formData.date, teacherSchedule, allData.timeslots]);
+
+            const availableCourses = useMemo(() => {
+                if (!formData.class_id || !formData.division_id || !allData.courses) return [];
+                return allData.courses.filter(c => c.class_id == formData.class_id && c.division_id == formData.division_id);
+            }, [formData.class_id, formData.division_id, allData.courses]);
+
+            const handleClassSelect = (e) => {
+                const idx = e.target.value;
+                if (idx === '') return;
+                const cls = availableClasses[idx];
+                setFormData({
+                    ...formData,
+                    timeslot_id: cls.timeslot_id,
+                    course_id: cls.course_id,
+                    class_id: cls.class_id,
+                    division_id: cls.division_id
+                });
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (!formData.class_id || !formData.proxy_teacher_id || !formData.course_id) { alert("Please fill all fields"); return; }
+                try {
+                    await callApi('substitutions', 'POST', {
+                        original_teacher_id: formData.absent_teacher_id,
+                        proxy_teacher_id: formData.proxy_teacher_id,
+                        course_id: formData.course_id,
+                        class_id: formData.class_id,
+                        division_id: formData.division_id,
+                        date: formData.date,
+                        timeslot_id: formData.timeslot_id,
+                        status: 'Approved'
+                    });
+                    setFormData({ date: '', absent_teacher_id: '', timeslot_id: '', course_id: '', class_id: '', division_id: '', proxy_teacher_id: '' });
+                    fetchSubs();
+                    alert("Substitution created!");
+                } catch (e) { alert(e.message); }
+            };
+
+            const handleDelete = async (id) => {
+                if (!confirm("Are you sure you want to delete this substitution?")) return;
+                try {
+                    await callApi(`delete/substitutions/${id}`, 'DELETE');
+                    fetchSubs();
+                } catch (e) { alert(e.message); }
+            };
+
+            return (
+                <div className="mt-6">
+                    <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+                        <h3 className="text-xl font-bold mb-4">Create New Substitution</h3>
+                        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Date</label>
+                                <input type="date" required className="w-full p-2 border rounded" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Absent Teacher</label>
+                                <select className="w-full p-2 border rounded" value={formData.absent_teacher_id} onChange={e => setFormData({ ...formData, absent_teacher_id: e.target.value })} required>
+                                    <option value="">-- Select Teacher --</option>
+                                    {allData.lecturers?.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Select Class/Time</label>
+                                <select className="w-full p-2 border rounded" onChange={handleClassSelect} disabled={!formData.date || !formData.absent_teacher_id}>
+                                    <option value="">-- Select Class --</option>
+                                    {availableClasses.length === 0 && formData.date && <option disabled>No classes found.</option>}
+                                    {availableClasses.map((s, i) => (
+                                        <option key={i} value={i}>
+                                            [{s.timeslot.start_time.slice(0, 5)}-{s.timeslot.end_time.slice(0, 5)}] {s.course_name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Proxy Subject</label>
+                                <select className="w-full p-2 border rounded" value={formData.course_id} onChange={e => setFormData({ ...formData, course_id: e.target.value })} disabled={!formData.class_id}>
+                                    <option value="">-- Select Subject --</option>
+                                    {availableCourses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Proxy Teacher</label>
+                                <select className="w-full p-2 border rounded" value={formData.proxy_teacher_id} onChange={e => setFormData({ ...formData, proxy_teacher_id: e.target.value })} required disabled={!formData.timeslot_id}>
+                                    <option value="">-- Select Proxy --</option>
+                                    {allData.lecturers?.filter(l => l.id != formData.absent_teacher_id).map(l => (
+                                        <option key={l.id} value={l.id}>{l.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="lg:col-span-5">
+                                <StyledButton type="submit" disabled={isLoading} color="indigo" className="w-full">Create Substitution</StyledButton>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-bold">Existing Substitutions</h3>
+                        <button onClick={fetchSubs} className="text-indigo-600 hover:underline"><i className='bx bx-refresh'></i> Refresh</button>
+                    </div>
+                    {isLoading && substitutions.length === 0 ? <p>Loading...</p> : (
+                        <div className="bg-white rounded-lg shadow overflow-hidden">
+                            <table className="min-w-full text-sm text-left">
+                                <thead className="bg-gray-100 font-medium text-gray-700">
+                                    <tr><th className="p-3">Date</th><th className="p-3">Original</th><th className="p-3">Proxy</th><th className="p-3">Details</th><th className="p-3">Status</th><th className="p-3">Actions</th></tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {substitutions.map(sub => (
+                                        <tr key={sub.id} className="hover:bg-gray-50">
+                                            <td className="p-3">{sub.date}</td>
+                                            <td className="p-3 font-medium">{sub.original_teacher_name}</td>
+                                            <td className="p-3 text-indigo-600 font-medium">{sub.proxy_teacher_name}</td>
+                                            <td className="p-3">
+                                                <div className="font-bold text-gray-700">Proxy Subject: {sub.course_name}</div>
+                                                {sub.class_name} ({sub.division_name})<br />
+                                                <span className="text-xs text-gray-500">{sub.start_time?.slice(0, 5)} - {sub.end_time?.slice(0, 5)}</span>
+                                            </td>
+                                            <td className="p-3"><span className={`px-2 py-1 rounded text-xs font-bold ${sub.status === 'Approved' ? 'bg-green-100 text-green-800' : sub.status === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>{sub.status}</span></td>
+                                            <td className="p-3 flex gap-2">
+                                                <button onClick={() => handleDelete(sub.id)} className="text-red-500 hover:text-red-700" title="Delete"><i className='bx bx-trash text-xl'></i></button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const TimetableGrid = React.forwardRef(({ timetable, allData, substitutions, onEdit }, ref) => {
+            const { timeslots } = allData;
+            const formatTime = useCallback((timeStr) => {
+                if (!timeStr) return "";
+                const parts = timeStr.split(':');
+                if (parts.length < 2) return timeStr;
+                const h = parts[0].padStart(2, '0');
+                const m = parts[1];
+                return `${h}:${m}`;
+            }, []);
+
+            const days = useMemo(() => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], []);
+
+            const timeHeaders = useMemo(() => {
+                if (!timeslots) return [];
+                const ranges = new Set(timeslots.map(t => `${formatTime(t.start_time)}-${formatTime(t.end_time)}`));
+                return [...ranges].sort();
+            }, [timeslots, formatTime]);
+
+            const gridData = useMemo(() => {
+                const grid = {};
+                days.forEach(day => { grid[day] = {}; timeHeaders.forEach(time => grid[day][time] = []); });
+                if (!timetable || !timeslots) return grid;
+                timetable.forEach(entry => {
+                    const ts = timeslots.find(t => t.id === entry.timeslot_id);
+                    if (ts) {
+                        const timeKey = `${formatTime(ts.start_time)}-${formatTime(ts.end_time)}`;
+                        if (grid[ts.day_of_week]) {
+                            if (!grid[ts.day_of_week][timeKey]) grid[ts.day_of_week][timeKey] = [];
+                            grid[ts.day_of_week][timeKey].push(entry);
+                        }
+                    }
+                });
+                return grid;
+            }, [timetable, timeslots, days, timeHeaders, formatTime]);
+
+            const colors = ['bg-blue-100', 'bg-green-100', 'bg-yellow-100', 'bg-purple-100', 'bg-pink-100', 'bg-indigo-100'];
+            return (
+                <motion.div ref={ref} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white/95 backdrop-blur-sm p-4 sm:p-6 rounded-lg shadow-lg mt-8 overflow-x-auto border border-white/20">
+                    <div className="min-w-[800px]">
+                        <div className="grid gap-1" style={{ gridTemplateColumns: `minmax(100px, auto) repeat(${timeHeaders.length}, minmax(150px, 1fr))` }}>
+                            <div />
+                            {timeHeaders.map(time => <div key={time} className="p-2 text-center font-bold text-gray-600 bg-gray-100 rounded-md mb-1">{time}</div>)}
+                            {days.map(day => {
+                                const hasSlots = timeslots.some(ts => ts.day_of_week === day);
+                                if (!hasSlots) return null;
+                                return (
+                                    <Fragment key={day}>
+                                        <div className="p-4 font-bold text-gray-700 flex items-center justify-center bg-gray-50 rounded-l-lg">{day}</div>
+                                        {timeHeaders.map(time => {
+                                            const slotForCell = timeslots.find(ts =>
+                                                ts.day_of_week === day &&
+                                                `${formatTime(ts.start_time)}-${formatTime(ts.end_time)}` === time
+                                            );
+                                            const isBreak = slotForCell && slotForCell.type === 'Break';
+                                            const cellSubs = substitutions?.filter(s => slotForCell && s.timeslot_id === slotForCell.id && s.status === 'Approved') || [];
+
+                                            cellSubs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                                            return (
+                                                <div key={`${day}-${time}`} className={`border rounded-lg p-2 min-h-[120px] ${isBreak ? 'bg-yellow-100/50 border-yellow-200' : 'bg-gray-50/50'}`}>
+                                                    {isBreak && (<div className="flex h-full items-center justify-center"><span className="text-yellow-700 font-bold tracking-widest text-lg opacity-70 transform -rotate-12">BREAK</span></div>)}
+
+                                                    {!isBreak && (gridData[day]?.[time] || []).map((entry, index) => {
+                                                        const entrySub = cellSubs.find(s => {
+                                                            if ((gridData[day][time] || []).length === 1 && cellSubs.length > 0) return true;
+                                                            const subTeacher = (s.original_teacher_name || "").toLowerCase().replace(/dr\.|prof\.|mr\.|mrs\.|er\./g, '').trim();
+                                                            const entryTeacher = (entry.teacher || "").toLowerCase().replace(/dr\.|prof\.|mr\.|mrs\.|er\./g, '').trim();
+                                                            return subTeacher.includes(entryTeacher) || entryTeacher.includes(subTeacher);
+                                                        });
+
+                                                        let proxySubjectName = "Proxy Subject";
+                                                        if (entrySub) {
+                                                            const foundCourse = allData.courses?.find(c => c.id == entrySub.course_id);
+                                                            if (foundCourse) proxySubjectName = foundCourse.name;
+                                                            else if (entrySub.course_name) proxySubjectName = entrySub.course_name;
+                                                        }
+
+                                                        const color = entry.is_practical ? 'bg-orange-100' : colors[entry.course_id % colors.length];
+                                                        return (
+                                                            <motion.div key={`${entry.course_id}-${index}`} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1 * index }} className={`${color} p-2 rounded-md shadow-sm mb-2 text-gray-800 border-l-4 border-black/10 relative group`}>
+                                                                <div className="font-bold text-sm">
+                                                                    {entrySub ? (
+                                                                        <div className="bg-white/50 p-1 rounded border border-red-200">
+                                                                            <div className="text-red-600 font-extrabold flex items-center gap-1 leading-tight mb-1">
+                                                                                <i className='bx bx-git-repo-forked'></i>
+                                                                                {proxySubjectName}
+                                                                            </div>
+                                                                            <div className="text-[10px] text-gray-500 line-through">Original: {entry.course_name}</div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span>{entry.course_name} {entry.is_practical && <span className="text-orange-700"> (P)</span>}</span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-xs text-gray-600 mt-1">
+                                                                    {entrySub ? (
+                                                                        <span className="font-bold text-indigo-700 flex items-center gap-1">
+                                                                            <i className='bx bx-user'></i> {entrySub.proxy_teacher_name}
+                                                                        </span>
+                                                                    ) : (
+                                                                        entry.teacher
+                                                                    )}
+                                                                </p>
+                                                                <p className="text-xs text-indigo-700 font-semibold">{entry.room}</p>
+
+                                                                {onEdit && (
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); onEdit(entry); }}
+                                                                        className="absolute top-1 right-1 p-1 bg-white/80 rounded-full hover:bg-white text-indigo-600 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                        title="Customize Session"
+                                                                    >
+                                                                        <i className='bx bx-pencil'></i>
+                                                                    </button>
+                                                                )}
+                                                            </motion.div>
+                                                        )
+                                                    })}
+
+                                                    {cellSubs.filter(s => !(gridData[day]?.[time] || []).some(e => {
+                                                        if ((gridData[day][time] || []).length === 1) return true;
+                                                        const subTeacher = (s.original_teacher_name || "").toLowerCase().replace(/dr\.|prof\.|mr\.|mrs\./g, '').trim();
+                                                        const entryTeacher = (e.teacher || "").toLowerCase().replace(/dr\.|prof\.|mr\.|mrs\./g, '').trim();
+                                                        return subTeacher.includes(entryTeacher) || entryTeacher.includes(subTeacher);
+                                                    })).map(sub => (
+                                                        <div key={sub.id} className="mt-2 p-2 bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs rounded shadow-sm relative overflow-hidden group">
+                                                            <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
+                                                            <div className="font-bold flex justify-between">
+                                                                <span>{sub.date}</span>
+                                                            </div>
+                                                            <div className="text-[10px] font-mono text-indigo-600 mb-1">
+                                                                {sub.start_time?.slice(0, 5)} - {sub.end_time?.slice(0, 5)}
+                                                            </div>
+                                                            <div className="font-bold text-red-600 break-words" title={sub.course_name}>
+                                                                <i className='bx bx-git-repo-forked'></i> {sub.course_name || "Proxy Subject"}
+                                                            </div>
+                                                            <div className="text-[10px] text-gray-500 mt-1">Proxy: <span className="font-medium">{sub.proxy_teacher_name}</span></div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            );
+                                        })}
+                                    </Fragment>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </motion.div>
+            );
+        });
+
+        const ManagementComponent = ({ title, existingItems, apiEndpoint, onAddData, isLoading, apiError, onDelete, formFields, onViewProfile, onEdit }) => {
+            const [formData, setFormData] = useState({});
+            const handleSubmit = async (e) => { e.preventDefault(); const success = await onAddData(apiEndpoint, formData); if (success) setFormData({}); };
+            const renderItem = (item) => {
+                let mainText, subText;
+                switch (apiEndpoint) {
+                    case 'streams': mainText = item.name; break;
+                    case 'departments': mainText = <p className="font-bold">{item.name}</p>; subText = <p className="text-sm text-indigo-700">{item.stream_name}</p>; break;
+                    case 'rooms': mainText = <p className="font-bold">{item.name} <span className="font-normal text-gray-600">({item.type})</span></p>; subText = <p className="text-sm text-gray-500">Capacity: {item.capacity}</p>; break;
+                    case 'divisions': mainText = `Division ${item.name}`; break;
+                    case 'classes': mainText = item.name; subText = <p className="text-sm text-indigo-700">{item.department_name}</p>; break;
+                    default: mainText = item.name;
+                }
+                return (<li key={item.id} className="p-3 bg-gray-100 rounded-md flex justify-between items-center"> <div>{mainText}{subText}</div> <div className="flex-shrink-0"> <SmallIconButton onClick={() => onDelete(apiEndpoint, item.id)} icon="bx-trash" title={`Delete ${title}`} colorClass="text-red-500 hover:text-red-700" /> </div> </li>);
+            };
+            return (<div className="grid md:grid-cols-2 gap-8 mt-6"> <div className="bg-white p-6 rounded-lg shadow-md"> <h3 className="text-xl font-bold mb-4">Add New {title}</h3> <form onSubmit={handleSubmit} className="space-y-4"> {formFields.map(field => (<div key={field.name}> <label className="text-sm font-medium">{field.label}</label> {field.type === 'select' ? (<select name={field.name} value={formData[field.name] || ''} onChange={e => setFormData({ ...formData, [field.name]: e.target.value })} required className="w-full p-2 border rounded-md mt-1" disabled={field.disabled}> <option value="">{field.disabled ? 'Loading...' : 'Select...'}</option> {field.options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)} </select>) : (<input type={field.type} name={field.name} value={formData[field.name] || ''} min={field.min} onChange={e => setFormData({ ...formData, [field.name]: e.target.value })} placeholder={field.placeholder} required className="w-full p-2 border rounded-md mt-1" />)} </div>))} <StyledButton type="submit" disabled={isLoading} color="blue" className="w-full">{isLoading ? 'Adding...' : `Add ${title}`}</StyledButton> {apiError && <p className="text-red-500 text-sm mt-2">{apiError}</p>} </form> </div> <div className="bg-white p-6 rounded-lg shadow-md"> <h3 className="text-xl font-bold mb-4">Existing {title}s</h3> {existingItems && existingItems.length > 0 ? (<ul className="space-y-2 max-h-96 overflow-y-auto">{existingItems.map(renderItem)}</ul>) : (<div className="text-center text-gray-500 mt-10"><p>No {title.toLowerCase()}s found.</p><p className="text-sm mt-2">Use the form on the left to add a new one.</p></div>)} </div> </div>);
+        };
+
+        const TimeslotManagement = ({ allData, onAddData, isLoading, apiError, onDelete }) => {
+            const [formData, setFormData] = useState({ type: 'Lecture' });
+            const handleSubmit = async (e) => { e.preventDefault(); const success = await onAddData('timeslots', formData); if (success) setFormData({ ...formData, start_time: '', end_time: '' }); };
+            const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            const groupedSlots = useMemo(() => { const grouped = {}; days.forEach(d => grouped[d] = []); allData.timeslots?.forEach(ts => { if (grouped[ts.day_of_week]) grouped[ts.day_of_week].push(ts); }); return grouped; }, [allData.timeslots]);
+
+            const sortTimes = (a, b) => {
+                const timeToMins = (str) => {
+                    const [h, m] = str.split(':').map(Number);
+                    return h * 60 + m;
+                };
+                return timeToMins(a.start_time) - timeToMins(b.start_time);
+            };
+
+            return (<div className="grid md:grid-cols-2 gap-8 mt-6"> <div className="bg-white p-6 rounded-lg shadow-md"> <h3 className="text-xl font-bold mb-4">Add Time Slot</h3> <form onSubmit={handleSubmit} className="space-y-4"> <div> <label className="text-sm font-medium">Day</label> <select name="day_of_week" value={formData.day_of_week || ''} onChange={e => setFormData({ ...formData, day_of_week: e.target.value })} required className="w-full p-2 border rounded-md mt-1"> <option value="">Select Day</option> {days.map(d => <option key={d} value={d}>{d}</option>)} </select> </div> <div className="grid grid-cols-2 gap-2"> <div> <label className="text-sm font-medium">Start Time</label> <input type="time" name="start_time" value={formData.start_time || ''} onChange={e => setFormData({ ...formData, start_time: e.target.value })} required className="w-full p-2 border rounded-md mt-1" /> </div> <div> <label className="text-sm font-medium">End Time</label> <input type="time" name="end_time" value={formData.end_time || ''} onChange={e => setFormData({ ...formData, end_time: e.target.value })} required className="w-full p-2 border rounded-md mt-1" /> </div> </div> <div> <label className="text-sm font-medium">Type</label> <select name="type" value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })} required className="w-full p-2 border rounded-md mt-1"> <option value="Lecture">Lecture Only</option> <option value="Practical">Practical Only</option> <option value="Both">Both (Lecture or Practical)</option> <option value="Break">Break</option> </select> </div> <StyledButton type="submit" disabled={isLoading} color="blue" className="w-full"> {isLoading ? 'Adding...' : 'Add Slot'} </StyledButton> {apiError && <p className="text-red-500 text-sm mt-2">{apiError}</p>} </form> </div> <div className="bg-white p-6 rounded-lg shadow-md max-h-[600px] overflow-y-auto"> <h3 className="text-xl font-bold mb-4">Current Slots</h3> {days.map(day => (groupedSlots[day]?.length > 0 && (<div key={day} className="mb-4"> <h4 className="font-bold text-gray-700 border-b pb-1 mb-2">{day}</h4> <ul className="space-y-2"> {groupedSlots[day].sort(sortTimes).map(ts => (<li key={ts.id} className="p-2 bg-gray-50 rounded border flex justify-between items-center"> <span> <span className="font-mono font-semibold">{ts.start_time.substring(0, 5)} - {ts.end_time.substring(0, 5)}</span> <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${ts.type === 'Break' ? 'bg-yellow-200 text-yellow-800' : ts.type === 'Practical' ? 'bg-orange-200 text-orange-800' : 'bg-blue-200 text-blue-800'}`}> {ts.type} </span> </span> <SmallIconButton onClick={() => onDelete('timeslots', ts.id)} icon="bx-trash" colorClass="text-red-400 hover:text-red-600" /> </li>))} </ul> </div>)))} </div> </div>);
+        };
+
+        const UserManagement = ({ allData, onAddData, isLoading, apiError, onDelete, onViewProfile, onEdit }) => {
+            const [formData, setFormData] = useState({ role: 'student' });
+            const [selectedStream, setSelectedStream] = useState('');
+            const handleInputChange = (e) => { const { name, value } = e.target; const newFormData = { ...formData, [name]: value }; if (name === 'role' && value === 'lecturer') { delete newFormData.class_id; delete newFormData.division_id; } if (name === 'stream_id') { setSelectedStream(value); delete newFormData.department_id; delete newFormData.class_id; } if (name === 'department_id' && formData.role === 'student') { delete newFormData.class_id; } setFormData(newFormData); };
+            const handleSubmit = async (e) => { e.preventDefault(); const success = await onAddData('users', formData); if (success) { setFormData({ role: 'student' }); setSelectedStream(''); } };
+            const filteredDepartments = useMemo(() => allData.departments?.filter(d => d.stream_id == selectedStream) || [], [selectedStream, allData.departments]);
+            const filteredClasses = useMemo(() => allData.classes?.filter(c => c.department_id == formData.department_id) || [], [formData.department_id, allData.classes]);
+            return (<div className="grid md:grid-cols-2 gap-8 mt-6"><div className="bg-white p-6 rounded-lg shadow-md"><h3 className="text-xl font-bold mb-4">Create New User</h3><form onSubmit={handleSubmit} className="space-y-4"><div><label className="text-sm font-medium">Full Name</label><input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} required className="w-full p-2 border rounded-md mt-1" /></div><div><label className="text-sm font-medium">Email</label><input type="email" name="email" value={formData.email || ''} onChange={handleInputChange} required className="w-full p-2 border rounded-md mt-1" /></div><div><label className="text-sm font-medium">Password</label><input type="password" name="password" value={formData.password || ''} onChange={handleInputChange} required placeholder="Set initial password" className="w-full p-2 border rounded-md mt-1" /></div><div><label className="text-sm font-medium">Role</label><select name="role" value={formData.role} onChange={handleInputChange} className="w-full p-2 border rounded-md mt-1"><option value="student">Student</option><option value="lecturer">Lecturer</option></select></div><div><label className="text-sm font-medium">Stream</label><select name="stream_id" value={selectedStream} onChange={handleInputChange} required className="w-full p-2 border rounded-md mt-1"><option value="">Select Stream</option>{allData.streams?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div><div><label className="text-sm font-medium">Department</label><select name="department_id" value={formData.department_id || ''} onChange={handleInputChange} required disabled={!selectedStream} className="w-full p-2 border rounded-md mt-1 disabled:bg-gray-200"><option value="">Select Department</option>{filteredDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>{formData.role === 'student' && (<Fragment><div><label className="text-sm font-medium">Class</label><select name="class_id" value={formData.class_id || ''} onChange={handleInputChange} required disabled={!formData.department_id} className="w-full p-2 border rounded-md mt-1 disabled:bg-gray-200"><option value="">Select Class</option>{filteredClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div><div><label className="text-sm font-medium">Division</label><select name="division_id" value={formData.division_id || ''} onChange={handleInputChange} required disabled={!formData.department_id} className="w-full p-2 border rounded-md mt-1 disabled:bg-gray-200"><option value="">Select Division</option>{allData.divisions?.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div></Fragment>)}<StyledButton type="submit" disabled={isLoading} color="blue" className="w-full">{isLoading ? 'Creating...' : `Create User`}</StyledButton>{apiError && <p className="text-red-500 text-sm mt-2">{apiError}</p>}</form></div><div className="bg-white p-6 rounded-lg shadow-md"><h3 className="text-xl font-bold mb-4">Existing Users</h3>{allData.users && allData.users.length > 0 ? (<ul className="space-y-2 max-h-96 overflow-y-auto">{allData.users?.map(u => <li key={u.id} className="p-3 bg-gray-100 rounded-md flex justify-between items-center"><div><p className="font-bold">{u.name} <span className="font-normal text-gray-600">({u.email})</span></p><p className="text-sm text-indigo-700 capitalize">{u.role} - {u.department_name}</p></div><div className="flex-shrink-0 flex items-center gap-1"><SmallIconButton onClick={() => onViewProfile(u.id)} icon="bx-user" title="View Profile" colorClass="text-blue-500 hover:text-blue-700" /><SmallIconButton onClick={() => onEdit('user', u)} icon="bx-edit" title="Edit User" colorClass="text-yellow-500 hover:text-yellow-700" /><SmallIconButton onClick={() => onDelete('users', u.id)} icon="bx-trash" title="Delete User" colorClass="text-red-500 hover:text-red-700" /></div></li>)}</ul>) : (<div className="text-center text-gray-500 mt-10"><p>No users found.</p></div>)}</div></div>);
+        };
+
+        const CourseManagement = ({ allData, onAddData, isLoading, apiError, onDelete, onViewProfile, onEdit }) => {
+            const [formData, setFormData] = useState({});
+            const [selectedStream, setSelectedStream] = useState('');
+            const [selectedDepartment, setSelectedDepartment] = useState('');
+            const handleInputChange = (e) => { const { name, value } = e.target; const newFormData = { ...formData, [name]: value }; if (name === 'stream_id') { setSelectedStream(value); delete newFormData.department_id; delete newFormData.class_id; } if (name === 'department_id') { setSelectedDepartment(value); delete newFormData.class_id; } setFormData(newFormData); };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                // Calculate numeric values from comma-separated text
+                let l_total = parseInt(formData.lectures_per_week) || 0;
+                let p_total = parseInt(formData.practicals_per_week) || 0;
+
+                const finalData = {
+                    ...formData,
+                    lectures_per_week: l_total,
+                    practicals_per_week: p_total,
+                    lecture_times: "", // Explicitly empty as per request to remove fields
+                    practical_times: ""
+                };
+
+                const success = await onAddData('courses', finalData);
+                if (success) {
+                    setFormData({}); setSelectedStream(''); setSelectedDepartment('');
+                }
+            };
+
+            const filteredDepartments = useMemo(() => allData.departments?.filter(d => d.stream_id == selectedStream) || [], [selectedStream, allData.departments]);
+            const filteredClasses = useMemo(() => allData.classes?.filter(c => c.department_id == selectedDepartment) || [], [selectedDepartment, allData.classes]);
+            return (<div className="grid md:grid-cols-2 gap-8 mt-6"> <div className="bg-white p-6 rounded-lg shadow-md"> <h3 className="text-xl font-bold mb-4">Add New Subject</h3> <form onSubmit={handleSubmit} className="space-y-4"> <div><label className="text-sm font-medium">Subject Name</label><input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} required placeholder="e.g., Intro to AI" className="w-full p-2 border rounded-md mt-1" /></div> <div><label className="text-sm font-medium">Stream</label><select name="stream_id" value={selectedStream} onChange={handleInputChange} required className="w-full p-2 border rounded-md mt-1"><option value="">Select Stream</option>{allData.streams?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div> <div><label className="text-sm font-medium">Department</label><select name="department_id" value={formData.department_id || ''} onChange={handleInputChange} required disabled={!selectedStream} className="w-full p-2 border rounded-md mt-1 disabled:bg-gray-200"><option value="">Select Department</option>{filteredDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div> <div><label className="text-sm font-medium">Class</label><select name="class_id" value={formData.class_id || ''} onChange={handleInputChange} required disabled={!selectedDepartment} className="w-full p-2 border rounded-md mt-1 disabled:bg-gray-200"><option value="">Select Class</option>{filteredClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div> <div><label className="text-sm font-medium">Division</label><select name="division_id" value={formData.division_id || ''} onChange={handleInputChange} required disabled={!selectedDepartment} className="w-full p-2 border rounded-md mt-1 disabled:bg-gray-200"><option value="">Select Division</option>{allData.divisions?.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div> <div><label className="text-sm font-medium">Lecturer</label><select name="lecturer_id" value={formData.lecturer_id || ''} onChange={handleInputChange} required disabled={!allData.lecturers} className="w-full p-2 border rounded-md mt-1 disabled:bg-gray-200"><option value="">Select Lecturer</option>{allData.lecturers?.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</select></div>
+
+                {/* MODIFIED: Separate counts, removed text inputs */}
+                <div>
+                    <label className="text-sm font-medium">No. of Lectures</label>
+                    <input type="number" name="lectures_per_week" value={formData.lectures_per_week || ''} onChange={handleInputChange} min="0" required className="w-full p-2 border rounded-md mt-1" />
+                </div>
+
+                <div>
+                    <label className="text-sm font-medium">No. of Practicals</label>
+                    <input type="number" name="practicals_per_week" value={formData.practicals_per_week || ''} onChange={handleInputChange} min="0" className="w-full p-2 border rounded-md mt-1" />
+                </div>
+
+                <StyledButton type="submit" disabled={isLoading} color="blue" className="w-full">{isLoading ? 'Adding...' : `Add Subject`}</StyledButton> {apiError && <p className="text-red-500 text-sm mt-2">{apiError}</p>} </form> </div> <div className="bg-white p-6 rounded-lg shadow-md"> <h3 className="text-xl font-bold mb-4">Existing Subjects</h3> {allData.courses && allData.courses.length > 0 ? (<ul className="space-y-3 max-h-96 overflow-y-auto"> {allData.courses?.map(c => (<li key={c.id} className="p-3 bg-gray-100 rounded-md flex justify-between items-center"> <div> <p className="font-bold">{c.name} <span className="font-normal">({c.lecturer_name})</span></p>
+                    <p className="text-xs text-gray-500 mt-1">
+                        <span>Lectures: {c.lectures_per_week}</span>
+                        <br />
+                        <span>Practicals: {c.practicals_per_week}</span>
+                    </p>
+                    <p className="text-sm text-indigo-700 mt-1">{c.stream_name || 'No Stream'} &rarr; {c.department_name || 'No Dept.'} &rarr; Div: {c.division_name || 'N/A'}</p> </div> <div className="flex-shrink-0 flex items-center gap-1">
+                        <SmallIconButton onClick={() => {
+                            const cls = allData.classes?.find(cl => cl.id === c.class_id);
+                            const div = allData.divisions?.find(d => d.id === c.division_id);
+                            onViewProfile(c.lecturer_id, {
+                                "Class": cls ? cls.name : 'N/A',
+                                "Division": div ? div.name : (c.division_name || 'N/A'),
+                                "Lectures / Week": c.lectures_per_week || 0,
+                                "Practicals / Week": c.practicals_per_week || 0
+                            });
+                        }} icon="bx-user" title="View Lecturer Profile" colorClass="text-blue-500 hover:text-blue-700" />
+                        <SmallIconButton onClick={() => onEdit('course', c)} icon="bx-edit" title="Edit Subject" colorClass="text-yellow-500 hover:text-yellow-700" /> <SmallIconButton onClick={() => onDelete('courses', c.id)} icon="bx-trash" title="Delete Subject" colorClass="text-red-500 hover:text-red-700" /> </div> </li>))} </ul>) : (<div className="text-center text-gray-500 mt-10"><p>No subjects found.</p></div>)} </div> </div>);
+        };
+
+        const AttendanceManagement = ({ allData, user }) => {
+            const [formData, setFormData] = useState({ date: new Date().toISOString().split('T')[0] });
+            const [selectedStream, setSelectedStream] = useState('');
+            const [selectedDepartment, setSelectedDepartment] = useState('');
+            const [selectedClass, setSelectedClass] = useState('');
+            const [selectedDivision, setSelectedDivision] = useState('');
+            const [selectedCourse, setSelectedCourse] = useState('');
+            const [studentStatuses, setStudentStatuses] = useState([]);
+            const { isLoading, error, callApi, setError } = useApi();
+            const [successMessage, setSuccessMessage] = useState('');
+
+            const filteredDepartments = useMemo(() => allData.departments?.filter(d => d.stream_id == selectedStream) || [], [selectedStream, allData.departments]);
+            const filteredClasses = useMemo(() => allData.classes?.filter(c => c.department_id == selectedDepartment) || [], [selectedDepartment, allData.classes]);
+
+            const filteredCourses = useMemo(() => {
+                let courses = allData.courses;
+                if (user.role === 'lecturer') courses = courses?.filter(c => c.lecturer_id == user.id);
+                return courses?.filter(c => c.class_id == selectedClass && c.division_id == selectedDivision) || [];
+            }, [selectedClass, selectedDivision, allData.courses, user.role, user.id]);
+
+            const filteredStudents = useMemo(() => {
+                if (!selectedClass || !selectedDivision) return [];
+                return allData.users?.filter(u => u.role === 'student' && u.class_id == selectedClass && u.division_id == selectedDivision);
+            }, [selectedClass, selectedDivision, allData.users]);
+
+            useEffect(() => { setStudentStatuses(filteredStudents.map(s => ({ student_id: s.id, name: s.name, status: 'Present' }))); }, [filteredStudents]);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault(); setError(null); setSuccessMessage('');
+                if (!selectedCourse || !formData.date || studentStatuses.length === 0) { setError("Please select all fields and make sure there are students."); return; }
+                const payload = { course_id: selectedCourse, class_id: selectedClass, division_id: selectedDivision, date: formData.date, taken_by_user_id: user.id, students_status: studentStatuses.map(s => ({ student_id: s.student_id, status: s.status })) };
+                try { const data = await callApi('attendance', 'POST', payload); setSuccessMessage(data.message || 'Attendance submitted successfully!'); } catch (err) { }
+            };
+
+            return (<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-6 rounded-lg shadow-md mt-6"> <h3 className="text-xl font-bold mb-4">Mark Attendance</h3> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4"> <select value={selectedStream} onChange={e => { setSelectedStream(e.target.value); setSelectedDepartment(''); }} className="w-full p-2 border rounded-md"><option value="">Select Stream</option>{allData.streams?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select> <select value={selectedDepartment} onChange={e => { setSelectedDepartment(e.target.value); setSelectedClass(''); }} disabled={!selectedStream} className="w-full p-2 border rounded-md disabled:bg-gray-100"><option value="">Select Department</option>{filteredDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select> <select value={selectedClass} onChange={e => { setSelectedClass(e.target.value); setSelectedDivision(''); }} disabled={!selectedDepartment} className="w-full p-2 border rounded-md disabled:bg-gray-100"><option value="">Select Class</option>{filteredClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select> <select value={selectedDivision} onChange={e => setSelectedDivision(e.target.value)} disabled={!selectedClass} className="w-full p-2 border rounded-md disabled:bg-gray-100"><option value="">Select Division</option>{allData.divisions?.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select> <select value={selectedCourse} onChange={e => setSelectedCourse(e.target.value)} disabled={!selectedDivision} className="w-full p-2 border rounded-md disabled:bg-gray-100"><option value="">Select Subject</option>{filteredCourses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select> <input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} className="w-full p-2 border rounded-md" /> </div> {studentStatuses.length > 0 && (<form onSubmit={handleSubmit}> <div className="flex justify-end gap-2 mb-2"> <StyledButton type="button" onClick={() => setStudentStatuses(prev => prev.map(s => ({ ...s, status: 'Present' })))} color="green" className="text-sm !py-1 !px-2">Mark All Present</StyledButton> <StyledButton type="button" onClick={() => setStudentStatuses(prev => prev.map(s => ({ ...s, status: 'Absent' })))} color="red" className="text-sm !py-1 !px-2">Mark All Absent</StyledButton> </div> <div className="space-y-2 max-h-96 overflow-y-auto border p-3 rounded-md"> {studentStatuses.map(student => (<div key={student.student_id} className="flex justify-between items-center p-2 bg-gray-50 rounded-md"> <span className="font-medium">{student.name}</span> <button type="button" onClick={() => setStudentStatuses(prev => prev.map(s => s.student_id === student.student_id ? { ...s, status: s.status === 'Present' ? 'Absent' : 'Present' } : s))} className={`px-4 py-1 rounded-full text-white font-semibold text-sm ${student.status === 'Present' ? 'bg-green-500' : 'bg-red-500'}`} > {student.status} </button> </div>))} </div> <StyledButton type="submit" disabled={isLoading} color="blue" className="w-full mt-4">{isLoading ? 'Submitting...' : 'Submit Attendance'}</StyledButton> {error && <p className="text-red-500 text-sm mt-2 text-center">{error}</p>} {successMessage && <p className="text-green-500 text-sm mt-2 text-center">{successMessage}</p>} </form>)} </motion.div>);
+        };
+
+        const StudentViewAttendance = ({ user }) => {
+            const { isLoading, callApi } = useApi();
+            const [stats, setStats] = useState([]);
+            const [overallPercent, setOverallPercent] = useState(0);
+
+            useEffect(() => {
+                const fetchMyStats = async () => {
+                    try {
+                        const data = await callApi(`attendance/stats?student_id=${user.id}`);
+                        const report = data.stats || [];
+                        setStats(report);
+                        if (report.length > 0) {
+                            const total = report.reduce((acc, curr) => acc + Number(curr.total_lectures), 0);
+                            const attended = report.reduce((acc, curr) => acc + Number(curr.attended_lectures), 0);
+                            setOverallPercent(total > 0 ? ((attended / total) * 100).toFixed(2) : 0);
+                        }
+                    } catch (e) { }
+                };
+                fetchMyStats();
+            }, [user.id, callApi]);
+
+            return (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-6 rounded-lg shadow-md mt-6">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold">Itinerary Attendance Report</h3>
+                        <div className="text-right">
+                            <p className="text-xs text-gray-500">Overall Attendance</p>
+                            <p className={`text-2xl font-bold ${overallPercent >= 75 ? 'text-green-600' : 'text-red-600'}`}>{overallPercent}%</p>
+                        </div>
+                    </div>
+
+                    {isLoading && <p className="text-gray-500">Loading...</p>}
+                    {stats.length === 0 && !isLoading && <p className="text-gray-500">No attendance records found.</p>}
+
+                    {stats.length > 0 && (
+                        <div className="overflow-x-auto border rounded-lg">
+                            <table className="min-w-full text-left text-sm divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-4 py-3 font-semibold text-gray-700">Subject</th>
+                                        <th className="px-4 py-3 font-semibold text-gray-700 text-center">Total Lectures</th>
+                                        <th className="px-4 py-3 font-semibold text-gray-700 text-center">Present</th>
+                                        <th className="px-4 py-3 font-semibold text-gray-700 text-center">Percentage</th>
+                                        <th className="px-4 py-3 font-semibold text-gray-700 text-center">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200 bg-white">
+                                    {stats.map((record, i) => (
+                                        <tr key={i} className="hover:bg-gray-50">
+                                            <td className="px-4 py-3 font-medium text-gray-900">{record.course_name}</td>
+                                            <td className="px-4 py-3 text-center">{record.total_lectures}</td>
+                                            <td className="px-4 py-3 text-center text-green-600 font-semibold">{record.attended_lectures}</td>
+                                            <td className="px-4 py-3 text-center">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${record.percentage >= 75 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                    {record.percentage}%
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                {record.percentage >= 75 ? <span className="text-green-600"><i className='bx bx-check-circle'></i> Safe</span> : <span className="text-red-600"><i className='bx bx-error'></i> Defaulter</span>}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </motion.div>
+            );
+        };
+
+        // --- DASHBOARDS ---
+
+        // Define TabButton outside
+        const TabButton = ({ isActive, onClick, children }) => (
+            <StyledButton onClick={onClick} color={isActive ? 'active' : 'default'} className="m-1">
+                {children}
+            </StyledButton>
+        );
+
+        const AdminDashboard = ({ allData, onAddData, onUpdateTimetable, isLoading, apiError, user, onDataReload }) => {
+            const { useRef } = React;
+            const [activeTab, setActiveTab] = useState('generate');
+            const [timetable, setTimetable] = useState(null);
+            const [gridSubstitutions, setGridSubstitutions] = useState([]);
+            const [isCustomizeModalOpen, setIsCustomizeModalOpen] = useState(false);
+
+            // --- NEW: State for the session being customized ---
+            const [customizingSession, setCustomizingSession] = useState(null);
+
+            const [selectedStream, setSelectedStream] = useState('');
+            const [selectedDepartment, setSelectedDepartment] = useState('');
+            const [selectedClass, setSelectedClass] = useState('');
+            const [selectedDivision, setSelectedDivision] = useState('');
+
+            // Modal states
+            const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+            const [selectedProfileUser, setSelectedProfileUser] = useState(null);
+            const [selectedProfileExtraData, setSelectedProfileExtraData] = useState({});
+            const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+            const [itemToEdit, setItemToEdit] = useState(null);
+
+            const [itemToDelete, setItemToDelete] = useState(null);
+
+            const { isLoading: isDeleting, error: deleteError, setError: setDeleteError, callApi: deleteApi } = useApi();
+            const { isLoading: isUpdating, error: updateError, setError: setUpdateError, callApi: updateApi } = useApi();
+            const { isLoading: isGenerating, error: generationError, callApi: generateApi } = useApi();
+            const { isLoading: isFetching, error: fetchError, callApi: fetchApi } = useApi();
+
+            const timetableGridRef = useRef(null);
+
+            const handleStreamChange = (e) => { setSelectedStream(e.target.value); setSelectedDepartment(''); setSelectedClass(''); };
+            const handleDepartmentChange = (e) => { setSelectedDepartment(e.target.value); setSelectedClass(''); };
+            const filteredDepartments = useMemo(() => allData.departments?.filter(d => d.stream_id == selectedStream) || [], [selectedStream, allData.departments]);
+            const filteredClasses = useMemo(() => allData.classes?.filter(c => c.department_id == selectedDepartment) || [], [selectedDepartment, allData.classes]);
+
+            const handleAction = async (action) => {
+                if (!selectedClass || !selectedDivision) { setTimetable(null); return; }
+                setTimetable(null);
+                setGridSubstitutions([]);
+                const endpoint = action === 'generate' ? 'generate' : `timetables/${selectedClass}/${selectedDivision}`;
+                const method = action === 'generate' ? 'POST' : 'GET';
+                const body = action === 'generate' ? { class_id: selectedClass, division_id: selectedDivision } : null;
+                const apiCaller = action === 'generate' ? generateApi : fetchApi;
+                try {
+                    const data = await apiCaller(endpoint, method, body);
+                    setTimetable(data.timetable);
+                    const subData = await fetchApi(`substitutions?class_id=${selectedClass}&division_id=${selectedDivision}&status=Approved`);
+                    setGridSubstitutions(subData.substitutions || []);
+                }
+                catch (err) { if (String(err.message).includes("404")) setTimetable([]); }
+            };
+
+            useEffect(() => { if (timetable && timetable.length > 0 && timetableGridRef.current) { setTimeout(() => { timetableGridRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100); } }, [timetable]);
+
+            // --- Handlers for Profile and Edit ---
+            const handleViewProfile = (userId, extraData = {}) => {
+                const user = allData.users?.find(u => u.id === userId);
+                if (user) {
+                    setSelectedProfileUser(user);
+                    setSelectedProfileExtraData(extraData); // --- Pass extra data separately ---
+                    setIsProfileModalOpen(true);
+                }
+            };
+
+            const handleEdit = (itemType, item) => {
+                setUpdateError(null);
+                setItemToEdit({ type: itemType, data: item });
+                setIsEditModalOpen(true);
+            };
+
+            const handleSaveEdit = async (type, id, data) => {
+                const endpoint = type === 'user' ? `users/${id}` : `courses/${id}`;
+                await updateApi(endpoint, 'PUT', data);
+                onDataReload(); // Refresh data
+            };
+
+            // --- NEW: Handle Session Customize Click ---
+            const handleCustomizeSession = (session) => {
+                setCustomizingSession(session);
+                setIsCustomizeModalOpen(true);
+            };
+
+            const handleDelete = (itemType, itemId) => { setDeleteError(null); setItemToDelete({ type: itemType, id: itemId }); };
+            const handleConfirmDelete = async () => { if (!itemToDelete) return; try { await deleteApi(`delete/${itemToDelete.type}/${itemToDelete.id}`, 'DELETE'); setItemToDelete(null); onDataReload(); } catch (err) { setDeleteError(err.message); } };
+
+            const managementProps = { allData, onAddData, isLoading, apiError, onDelete: handleDelete, onViewProfile: handleViewProfile, onEdit: handleEdit };
+
+            return (
+                <div>
+                    <div className="flex flex-wrap gap-2 justify-center bg-white p-4 rounded-lg shadow-sm">
+                        {['generate', 'substitutions', 'timeslots', 'users', 'courses', 'streams', 'departments', 'classes', 'divisions', 'rooms', 'attendance', 'view_attendance'].map(tab => (
+                            <StyledButton
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                color={activeTab === tab ? 'active' : 'default'}
+                                className="m-1"
+                            >
+                                {tab === 'generate' ? 'Generator' :
+                                    tab === 'timeslots' ? 'Time Slots' :
+                                        tab === 'courses' ? 'Subjects' :
+                                            tab === 'view_attendance' ? 'View Attendance' :
+                                                tab.charAt(0).toUpperCase() + tab.slice(1)}
+                            </StyledButton>
+                        ))}
+                    </div>
+                    <AnimatePresence mode="wait">
+                        <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                            {activeTab === 'generate' && (
+                                <motion.div className="mt-10" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                                    <div className="w-full max-w-5xl mx-auto flex flex-col items-center bg-white/90 backdrop-blur-md p-8 rounded-2xl shadow-xl border border-gray-200">
+                                        <h3 className="text-2xl font-extrabold text-indigo-700 mb-6 tracking-tight text-center">Select Parameters</h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full mb-6">
+                                            <select value={selectedStream} onChange={handleStreamChange} className="w-full p-3 border rounded-lg"><option value="">Select Stream</option>{allData.streams?.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}</select>
+                                            <select value={selectedDepartment} onChange={handleDepartmentChange} disabled={!selectedStream} className="w-full p-3 border rounded-lg disabled:bg-gray-100"><option value="">Select Department</option>{filteredDepartments.map((d) => (<option key={d.id} value={d.id}>{d.name}</option>))}</select>
+                                            <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} disabled={!selectedDepartment} className="w-full p-3 border rounded-lg disabled:bg-gray-100"><option value="">Select Class</option>{filteredClasses.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}</select>
+                                            <select value={selectedDivision} onChange={(e) => setSelectedDivision(e.target.value)} disabled={!selectedClass} className="w-full p-3 border rounded-lg disabled:bg-gray-100"><option value="">Select Division</option>{allData.divisions?.map((d) => (<option key={d.id} value={d.id}>{d.name}</option>))}</select>
+                                        </div>
+                                        <div className="flex flex-col sm:flex-row gap-4 mt-6 justify-center">
+                                            <StyledButton onClick={() => { if (timetable && timetable.length > 0) { setCustomizingSession(null); setIsCustomizeModalOpen(true); } else alert("Please load a timetable first."); }} disabled={!timetable || timetable.length === 0}>Customize</StyledButton>
+                                            <SparklyButton onClick={() => handleAction("fetch")} disabled={isFetching} clr={120}>{isFetching ? "Loading..." : "Show"}</SparklyButton>
+                                            <ActionButton onClick={() => handleAction("generate")} disabled={isGenerating} color="indigo">{isGenerating ? "Generating..." : "Generate New"}</ActionButton>
+                                        </div>
+                                    </div>
+                                    {(isGenerating || isFetching) && <p className="text-indigo-600 mt-4 text-center">Loading timetable...</p>}
+                                    {(generationError || fetchError) && !String(generationError || fetchError).includes("404") && <div className="mt-6 bg-red-100 text-red-700 p-3 rounded-lg text-center"><strong>Error:</strong> {generationError || fetchError}</div>}
+
+                                    {/* --- Pass onEdit handler to grid --- */}
+                                    {timetable && timetable.length > 0 && <TimetableGrid ref={timetableGridRef} timetable={timetable} allData={allData} substitutions={gridSubstitutions} onEdit={handleCustomizeSession} />}
+
+                                    {timetable?.length === 0 && <div className="mt-6 bg-yellow-100 text-yellow-800 p-3 rounded-lg text-center">No timetable has been generated for this class yet.</div>}
+                                </motion.div>
+                            )}
+
+                            {activeTab === 'substitutions' && <SubstitutionManager allData={allData} />}
+                            {activeTab === 'users' && <UserManagement {...managementProps} />}
+                            {activeTab === 'streams' && <ManagementComponent title="Stream" apiEndpoint="streams" existingItems={allData.streams} formFields={[{ name: 'name', label: 'Stream Name', type: 'text', placeholder: 'e.g., Engineering' }]} {...managementProps} />}
+                            {activeTab === 'departments' && <ManagementComponent title="Department" apiEndpoint="departments" existingItems={allData.departments} formFields={[{ name: 'name', label: 'Department Name', type: 'text', placeholder: 'e.g., Computer Engineering' }, { name: 'stream_id', label: 'Stream', type: 'select', options: allData.streams?.map(s => ({ value: s.id, label: s.name })) || [], disabled: !allData.streams }]} {...managementProps} />}
+                            {activeTab === 'classes' && <ManagementComponent title="Class" apiEndpoint="classes" existingItems={allData.classes} formFields={[{ name: 'name', label: 'Class Name', type: 'text', placeholder: "e.g., First Year" }, { name: 'department_id', label: 'Department', type: 'select', options: allData.departments?.map(d => ({ value: d.id, label: d.name })) || [] }]} {...managementProps} />}
+                            {activeTab === 'divisions' && <ManagementComponent title="Division" apiEndpoint="divisions" existingItems={allData.divisions} formFields={[{ name: 'name', label: 'Division Name', type: 'text', placeholder: "e.g., A" }]} {...managementProps} />}
+                            {activeTab === 'courses' && <CourseManagement {...managementProps} />}
+                            {activeTab === 'rooms' && <ManagementComponent title="Room" apiEndpoint="rooms" existingItems={allData.rooms} formFields={[{ name: 'name', label: 'Room Name', type: 'text', placeholder: 'e.g., Room 103' }, { name: 'capacity', label: 'Capacity', type: 'number', min: 1 }, { name: 'type', label: 'Room Type', type: 'select', options: [{ value: 'Lecture', label: 'Lecture' }, { value: 'Lab', label: 'Lab' }] }]} {...managementProps} />}
+                            {activeTab === 'attendance' && <AttendanceManagement allData={allData} user={user} />}
+                            {activeTab === 'timeslots' && <TimeslotManagement {...managementProps} />}
+                            {activeTab === 'view_attendance' && <AttendanceStatsViewer allData={allData} />}
+                        </motion.div>
+                    </AnimatePresence>
+
+                    {/* --- Modals --- */}
+                    <CustomizeModal isOpen={isCustomizeModalOpen} onClose={() => setIsCustomizeModalOpen(false)} timetable={timetable} allData={allData} classId={selectedClass} divisionId={selectedDivision} onUpdate={setTimetable} initialSession={customizingSession} />
+                    <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} user={selectedProfileUser} extraData={selectedProfileExtraData} />
+                    <EditModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} item={itemToEdit} onSave={handleSaveEdit} />
+
+                    <AnimatePresence>
+                        {itemToDelete && (
+                            <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+                                <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+                                    <h3 className="text-xl font-bold mb-2">Confirm Deletion</h3>
+                                    <p className="text-gray-700 mb-4">Are you sure you want to delete this {itemToDelete.type.slice(0, -1)}?</p>
+                                    {deleteError && <p className="text-red-500 mb-2">{deleteError}</p>}
+                                    <div className="flex justify-end gap-2 mt-6">
+                                        <StyledButton onClick={() => setItemToDelete(null)} color="default" disabled={isDeleting}>Cancel</StyledButton>
+                                        <StyledButton onClick={handleConfirmDelete} disabled={isDeleting} color="red">{isDeleting ? 'Deleting...' : 'Delete'}</StyledButton>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            );
+        };
+
+        const LecturerStudentDashboard = ({ allData, user }) => {
+            const [timetable, setTimetable] = useState(null);
+            // --- NEW: State for substitutions in grid ---
+            const [gridSubstitutions, setGridSubstitutions] = useState([]);
+            const [mySchedule, setMySchedule] = useState(null);
+            const [selectedStream, setSelectedStream] = useState('');
+            const [selectedDepartment, setSelectedDepartment] = useState('');
+            const [selectedClass, setSelectedClass] = useState('');
+            const [selectedDivision, setSelectedDivision] = useState('');
+            const [activeTab, setActiveTab] = useState('timetable');
+            const { isLoading, error, callApi } = useApi(); // No fetchApi exposed by hook, use callApi
+
+            const fetchTimetable = useCallback(async (classId, divisionId) => {
+                if (!classId || !divisionId) { setTimetable(null); return; }
+                setTimetable(null);
+                setGridSubstitutions([]);
+                try {
+                    const data = await callApi(`timetables/${classId}/${divisionId}`);
+                    setTimetable(data.timetable);
+
+                    // --- NEW: Fetch substitutions for this class ---
+                    const subData = await callApi(`substitutions?class_id=${classId}&division_id=${divisionId}&status=Approved`);
+                    setGridSubstitutions(subData.substitutions || []);
+                } catch (err) { if (String(err.message).includes("404")) setTimetable([]); }
+            }, [callApi]);
+
+            useEffect(() => { if (selectedClass && selectedDivision) fetchTimetable(selectedClass, selectedDivision); else setTimetable(null); }, [selectedClass, selectedDivision, fetchTimetable]);
+            useEffect(() => {
+                if (user.role === 'student' && allData.classes && allData.departments) {
+                    const myClass = allData.classes.find(c => c.id === user.class_id);
+                    const myDept = allData.departments.find(d => d.id === user.department_id);
+                    if (myClass) setSelectedClass(myClass.id);
+                    if (myDept) { setSelectedDepartment(myDept.id); setSelectedStream(myDept.stream_id); }
+                    if (user.division_id) setSelectedDivision(user.division_id);
+                }
+                if (user.role === 'lecturer' && activeTab === 'my_schedule') {
+                    callApi(`teacher/schedule/${user.id}`).then(data => setMySchedule(data.schedule));
+                    // --- NEW: Fetch my substitutions ---
+                    callApi(`substitutions?teacher_id=${user.id}&status=Approved`).then(data => setGridSubstitutions(data.substitutions || []));
+                }
+            }, [user, allData.classes, allData.departments, activeTab, callApi]);
+
+            const handleStreamChange = (e) => { setSelectedStream(e.target.value); setSelectedDepartment(''); setSelectedClass(''); setSelectedDivision(''); };
+            const handleDepartmentChange = (e) => { setSelectedDepartment(e.target.value); setSelectedClass(''); setSelectedDivision(''); };
+            const handleClassChange = (e) => { setSelectedClass(e.target.value); setSelectedDivision(''); };
+            const handleDivisionChange = (e) => { setSelectedDivision(e.target.value); };
+
+            if (!allData.classes) return <div className="text-center p-8"><p className="text-gray-500">Loading data...</p></div>;
+
+            return (
+                <div>
+                    <div className="flex flex-wrap justify-center gap-4 mb-6">
+                        <StyledButton onClick={() => setActiveTab('timetable')} color={activeTab === 'timetable' ? 'active' : 'default'}>Class Timetable</StyledButton>
+                        {user.role === 'lecturer' && (
+                            <Fragment>
+                                <StyledButton onClick={() => setActiveTab('my_schedule')} color={activeTab === 'my_schedule' ? 'active' : 'default'}>My Schedule</StyledButton>
+                                <StyledButton onClick={() => setActiveTab('add_attendance')} color={activeTab === 'add_attendance' ? 'active' : 'default'}>Mark Attendance</StyledButton>
+                                <StyledButton onClick={() => setActiveTab('view_students')} color={activeTab === 'view_students' ? 'active' : 'default'}>View Attendance</StyledButton>
+                                {/* --- REMOVED Substitution Button --- */}
+                            </Fragment>
+                        )}
+                        {user.role === 'student' && <StyledButton onClick={() => setActiveTab('view_attendance')} color={activeTab === 'view_attendance' ? 'active' : 'default'}>My Attendance</StyledButton>}
+                    </div>
+
+                    {activeTab === 'timetable' && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                            <div className="flex flex-wrap justify-center items-center gap-4 bg-white p-4 rounded-lg shadow mb-6">
+                                <select value={selectedStream} onChange={handleStreamChange} className="p-2 border rounded-md" disabled={user.role === 'student'}><option value="">Select Stream</option> {allData.streams?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+                                <select value={selectedDepartment} onChange={handleDepartmentChange} disabled={!selectedStream || user.role === 'student'} className="p-2 border rounded-md disabled:bg-gray-100"><option value="">Select Department</option> {allData.departments?.filter(d => d.stream_id == selectedStream).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+                                <select value={selectedClass} onChange={handleClassChange} disabled={!selectedDepartment || user.role === 'student'} className="p-2 border rounded-md disabled:bg-gray-100"><option value="">Select Class</option> {allData.classes?.filter(c => c.department_id == selectedDepartment).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+                                <select value={selectedDivision} onChange={handleDivisionChange} disabled={!selectedClass || user.role === 'student'} className="p-2 border rounded-md disabled:bg-gray-100"><option value="">Select Division</option> {allData.divisions?.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+                            </div>
+                            {timetable && <TimetableGrid timetable={timetable} allData={allData} substitutions={gridSubstitutions} />}
+                            {selectedClass && selectedDivision && !timetable && !isLoading && <div className="text-center p-8 mt-6 bg-yellow-100 text-yellow-800 rounded-lg"><p>No timetable found.</p></div>}
+                        </motion.div>
+                    )}
+
+                    {activeTab === 'my_schedule' && user.role === 'lecturer' && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                            <h3 className="text-2xl font-bold text-center mb-4 text-indigo-700">My Personal Schedule</h3>
+                            {mySchedule ? <TimetableGrid timetable={mySchedule} allData={allData} substitutions={gridSubstitutions} /> : <p className="text-center text-gray-500">Loading your schedule...</p>}
+                        </motion.div>
+                    )}
+
+                    {activeTab === 'add_attendance' && user.role === 'lecturer' && <AttendanceManagement allData={allData} user={user} />}
+                    {activeTab === 'view_students' && user.role === 'lecturer' && <AttendanceStatsViewer allData={allData} user={user} />}
+                    {activeTab === 'view_attendance' && user.role === 'student' && <StudentViewAttendance user={user} />}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+            const [allData, setAllData] = useState({});
+            const { isLoading, error, setError, callApi } = useApi();
+
+            const fetchData = useCallback(async () => { try { const data = await callApi('data'); setAllData(data); setError(null); } catch (err) { } }, [callApi, setError]);
+            const handleAddData = useCallback(async (endpoint, data) => { try { await callApi(endpoint, 'POST', data); await fetchData(); return true; } catch (err) { return false; } }, [callApi, fetchData]);
+
+            useEffect(() => {
+                const loggedInUser = sessionStorage.getItem('timetable-user');
+                if (loggedInUser) setUser(JSON.parse(loggedInUser));
+                setIsCheckingAuth(false);
+            }, []);
+
+            useEffect(() => { if (user) fetchData(); }, [user, fetchData]);
+
+            const handleLogout = () => {
+                const storedUser = sessionStorage.getItem("timetable-user");
+                let isAdmin = false;
+                if (storedUser) { try { isAdmin = JSON.parse(storedUser).role === "admin"; } catch (e) { } }
+                sessionStorage.removeItem("timetable-user");
+                const currentPath = window.location.pathname;
+                const basePath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+                const loginPage = isAdmin ? "admin_auth.html" : "user_login.html";
+                window.location.replace(window.location.origin + basePath + loginPage);
+            };
+
+            if (isCheckingAuth) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+
+            if (!user) {
+                const currentPath = window.location.pathname;
+                if (!currentPath.endsWith('user_login.html') && !currentPath.endsWith('admin_auth.html')) {
+                    const basePath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+                    window.location.href = window.location.origin + basePath + 'user_login.html';
+                }
+                return null;
+            }
+
+            const renderDashboard = () => {
+                switch (user.role) {
+                    case 'admin': return <AdminDashboard user={user} allData={allData} onAddData={handleAddData} onUpdateTimetable={setAllData} isLoading={isLoading} apiError={error} onDataReload={fetchData} />;
+                    case 'lecturer':
+                    case 'student': return <LecturerStudentDashboard allData={allData} user={user} />;
+                    default: return <p>Invalid user role.</p>;
+                }
+            };
+
+            return (
+                <div className="container mx-auto p-4 sm:p-6 lg:p-8">
+                    <Header user={user} handleLogout={handleLogout} />
+                    <AnimatePresence mode="wait">
+                        <motion.div key={user.role} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+                            {renderDashboard()}
+                        </motion.div>
+                    </AnimatePresence>
+                </div>
+            );
+        };
+
+        if (!window.location.pathname.endsWith('user_login.html') && !window.location.pathname.endsWith('admin_auth.html')) {
+            setupAnimation();
+            ReactDOM.createRoot(document.getElementById('app-root')).render(<App />);
+        }
+
+    </script>
+</body>
+
+</html>

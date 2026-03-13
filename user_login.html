@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Login - Timetable Generator</title>
+  <!-- Tailwind is not strictly needed for this style but kept for potential future use -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/particles.js"></script> <!-- Re-added particles.js -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Add Boxicons CSS -->
+  <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+  <style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Poppins', sans-serif;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      /* background: #111; */ /* Removed solid dark background */
+      background: linear-gradient(135deg, #00c6ff, #ff758c, #ff7eb3, #ffb347); /* Restored gradient */
+      background-size: 400% 400%; /* Restored */
+      animation: gradientShift 15s ease infinite; /* Restored */
+      overflow: hidden;
+    }
+
+     /* Restored gradient animation */
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+     /* Restored particles container style */
+    #particles-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -1; /* Behind the form */
+    }
+
+
+    .box {
+        position: relative;
+        width: 380px;
+        height: 380px;
+        background: rgba(28, 28, 28, 0.7); /* Dark semi-transparent background for form box */
+        border: 1px solid rgba(255, 255, 255, 0.1); /* Subtle border */
+        backdrop-filter: blur(5px); /* Blur effect */
+        border-radius: 8px;
+        overflow: hidden; /* Important for pseudo-elements */
+         z-index: 2; /* Ensure form is above particles */
+    }
+
+    /* Animated Border Elements */
+    .box::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 380px;
+        height: 420px; /* Keep border animation size */
+        background: linear-gradient(0deg, transparent, rgba(233, 30, 99, 0.7), rgba(233, 30, 99, 0.7)); /* Pink/Red color with alpha */
+        transform-origin: bottom right;
+        animation: rotating 6s linear infinite;
+        z-index: 1; /* Below form content but above background */
+    }
+     .box::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 380px;
+        height: 420px; /* Keep border animation size */
+        background: linear-gradient(0deg, transparent, rgba(3, 169, 244, 0.7), rgba(3, 169, 244, 0.7)); /* Blue color with alpha */
+        transform-origin: bottom right;
+        animation: rotating 6s linear infinite;
+        animation-delay: -3s; /* Offset animation */
+         z-index: 1; /* Below form content but above background */
+    }
+
+
+    @keyframes rotating {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+
+    .form {
+        position: absolute;
+        inset: 4px; /* Creates the inner space */
+        background: rgba(34, 34, 34, 0.8); /* Darker semi-transparent background */
+        padding: 50px 40px;
+        border-radius: 8px;
+        z-index: 10; /* Above the animations */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .form h2 {
+        color: #fff;
+        font-weight: 500;
+        text-align: center;
+        letter-spacing: 0.1em;
+        margin-bottom: 30px; /* Space below title */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5em; /* Space between icon and text */
+    }
+     .form h2 i {
+         font-size: 1.2em;
+     }
+
+    .inputBox {
+        position: relative;
+        width: 300px;
+        margin-top: 35px;
+    }
+
+    .inputBox input {
+        position: relative;
+        width: 100%;
+        padding: 20px 10px 10px;
+        background: transparent;
+        outline: none;
+        border: none;
+        box-shadow: none;
+        color: #fff; /* Explicitly set initial color to white */
+        font-size: 1em;
+        letter-spacing: 0.05em;
+        /* transition: 0.5s; Removed color transition */
+        z-index: 10; /* Keep input text on top */
+    }
+
+    .inputBox span { /* Label */
+        position: absolute;
+        left: 0;
+        padding: 20px 0px 10px; /* Match input padding */
+        pointer-events: none;
+        color: #8f8f8f; /* Grey label */
+        font-size: 1em;
+        letter-spacing: 0.05em;
+        transition: 0.5s;
+    }
+
+    /* Input focus/valid animation */
+    .inputBox input:valid ~ span,
+    .inputBox input:focus ~ span {
+        color: #fff; /* White label */
+        font-size: 0.75em;
+        transform: translateY(-34px);
+    }
+
+    /* Text color is always white now */
+    /* .inputBox input:valid,
+    .inputBox input:focus {
+        color: #fff;
+    } */
+
+
+    .inputBox i { /* Underline */
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        height: 2px;
+        background: #fff; /* White underline */
+        border-radius: 4px;
+        overflow: hidden;
+        transition: 0.5s;
+        pointer-events: none;
+        z-index: 9; /* Ensure underline is below input text */
+    }
+
+    /* Underline animation on focus/valid */
+    .inputBox input:valid ~ i,
+    .inputBox input:focus ~ i {
+        height: 2px; /* Keep underline thin so text stays visible */
+    background: #03a9f4; /* Add blue glow for focus */
+    }
+
+    /* Links section removed */
+    /* .links { ... } */
+    /* .links a { ... } */
+
+    /* Button styles */
+    .submit-btn {
+        border: none;
+        outline: none;
+        padding: 9px 25px;
+        background: #fff;
+        cursor: pointer;
+        font-size: 0.9em;
+        border-radius: 4px;
+        font-weight: 600;
+        width: 100px; /* Fixed width */
+        margin-top: 35px; /* Adjusted margin after removing links */
+        transition: background 0.3s ease, color 0.3s ease;
+        align-self: center; /* Center button */
+    }
+
+    .submit-btn:hover:not(:disabled) {
+        background: #03a9f4; /* Blue on hover */
+        color: #fff;
+    }
+
+    .submit-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+
+  </style>
+</head>
+<body>
+  <div id="particles-bg"></div> <!-- Re-added particles div -->
+
+  <div class="box">
+      <form id="login-form" class="form" autocomplete="off">
+          <h2><i class='bx bx-log-in' ></i>LOGIN</h2>
+          <div class="inputBox">
+              <input type="email" id="email" required="required">
+              <span>Email</span>
+              <i></i>
+          </div>
+          <div class="inputBox">
+              <input type="password" id="password" required="required">
+              <span>Password</span>
+              <i></i>
+          </div>
+          <div id="error-message" class="text-red-400 text-sm text-center h-5 mt-2 mb-1"></div> <!-- Error message placeholder -->
+          <!-- Links div removed -->
+          <button type="submit" id="submit-button" class="submit-btn">Sign in</button>
+      </form>
+  </div>
+
+
+  <script>
+    // Re-added particlesJS initialization
+     particlesJS("particles-bg", {
+      particles: {
+        number: { value: 50 },
+        color: { value: "#ffffff" }, // White particles
+        shape: { type: "circle" },
+        opacity: { value: 0.3, random: true },
+        size: { value: 3, random: true },
+        line_linked: { enable: true, distance: 150, color: "#ffffff", opacity: 0.2, width: 1 },
+        move: { enable: true, speed: 1, direction: "none", random: true, straight: false, out_mode: "out", bounce: false }
+      },
+      interactivity: {
+        detect_on: "canvas",
+        events: { onhover: { enable: true, mode: "repulse" }, onclick: { enable: false }, resize: true },
+        modes: { repulse: { distance: 100, duration: 0.4 } }
+      },
+      retina_detect: true
+    });
+
+
+    // --- Simplified API_URL ---
+    // Since Flask is now serving both the API and the HTML,
+    // we can use a relative path. This works on localhost and ngrok!
+    const API_URL = "/api";
+    
+    document.getElementById("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const errorMessage = document.getElementById("error-message");
+      const button = document.getElementById("submit-button");
+
+      errorMessage.textContent = "";
+      button.disabled = true;
+      button.textContent = "Signing In..."; // Use textContent for button text
+
+      try {
+        const res = await fetch(`${API_URL}/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
+
+        // --- ROBUST ERROR HANDLING ---
+        if (!res.ok) {
+            let errorMsg = `${res.status}: ${res.statusText}`;
+            try {
+                const errorData = await res.json();
+                errorMsg = errorData.error || errorMsg;
+            } catch (e) {
+                // Response was not JSON
+            }
+            throw new Error(errorMsg);
+        }
+        // --- END OF FIX ---
+
+        const data = await res.json();
+        // --- IMPORTANT: Role check for user_login ---
+        if (data.user.role === "admin") throw new Error("Admins must use the Admin Portal.");
+        
+        // --- CHANGED: Use sessionStorage instead of localStorage ---
+        sessionStorage.setItem("timetable-user", JSON.stringify(data.user));
+        
+        window.location.href = "index.html";
+      } catch (err) {
+        errorMessage.textContent = err.message;
+      } finally {
+        button.disabled = false;
+        button.textContent = "Sign in"; // Use textContent for button text
+      }
+    });
+  </script>
+</body>
+</html>

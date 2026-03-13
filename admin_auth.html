@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Portal - Timetable Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/particles.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Add Boxicons CSS -->
+  <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+  <style>
+    body {
+      font-family: "Inter", sans-serif;
+      background: linear-gradient(135deg, #00c6ff, #ff758c, #ff7eb3, #ffb347); /* Restored gradient */
+      background-size: 400% 400%; /* Restored */
+      animation: gradientShift 15s ease infinite; /* Restored */
+      /* background-color: #fecaca; */ /* Removed solid color */
+      min-height: 100vh;
+      overflow: hidden; /* Keep particles contained */
+      display: flex; /* Needed for centering */
+      align-items: center;
+      justify-content: center;
+    }
+     /* Restored gradient animation */
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+     /* Restored particles container style */
+    #particles-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -1;
+    }
+
+    /* --- Form Styles --- */
+    .form-box {
+      width: 100%;
+      max-width: 400px; /* Adjust max width as needed */
+      background: rgba(255, 255, 255, 0.1); /* Adjusted alpha for gradient */
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2); /* Adjusted alpha for gradient */
+      border-radius: 1rem;
+      padding: 2rem;
+      color: white;
+      box-shadow: 0 4px 30px rgba(134, 52, 52, 0.1);
+      /* Add overflow hidden for animation */
+      overflow: hidden;
+    }
+
+    .form-box .title {
+      font-size: 1.75rem; /* Adjust size */
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 1.5rem;
+       color: #fff; /* Ensure title is white */
+    }
+
+    .input-box {
+      position: relative;
+      width: 100%;
+      height: 50px;
+      margin-bottom: 1.5rem; /* Space between input boxes */
+      border-bottom: 2px solid rgba(255, 255, 255, 0.8);
+    }
+
+    .input-box label {
+      position: absolute;
+      top: 50%;
+      left: 5px;
+      transform: translateY(-50%);
+      font-size: 1rem;
+      color: rgba(255, 255, 255, 0.8);
+      pointer-events: none;
+      transition: .3s ease;
+    }
+
+    .input-box input {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-size: 1rem;
+      color: white;
+      padding: 0 35px 0 5px;
+    }
+
+    /* Input focus/filled animation */
+    .input-box input:focus~label,
+    .input-box input:valid~label {
+      top: -5px;
+      font-size: 0.8rem;
+       color: #fff; /* Make label brighter on focus/fill */
+    }
+
+
+    .input-box i {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1.2rem;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .btn {
+      width: 100%;
+      height: 45px;
+      background: #4f46e5; /* Indigo color */
+      border: none;
+      outline: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+      color: #fff;
+      font-weight: 600;
+      transition: background 0.3s ease;
+    }
+     .btn:hover:not(:disabled) {
+        background: #4338ca; /* Darker Indigo */
+     }
+     .btn:disabled {
+         background: #a5b4fc; /* Lighter indigo for disabled */
+         cursor: not-allowed;
+     }
+
+    .logreg-link {
+        font-size: 0.9rem;
+        text-align: center;
+        margin-top: 1rem;
+         color: #fff; /* Ensure link text is white */
+    }
+    .logreg-link p a {
+        color: #fff;
+        text-decoration: underline;
+        font-weight: 600;
+        cursor: pointer;
+    }
+     .logreg-link p a:hover {
+         text-decoration: none;
+     }
+
+     /* --- Animation --- */
+     @keyframes slideUpFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+             opacity: 1;
+            transform: translateY(0);
+        }
+     }
+
+    .animation {
+        animation: slideUpFadeIn 0.5s ease forwards;
+        /* Use CSS variables for delay */
+        animation-delay: calc(var(--j) * 0.1s); /* --j controls the delay sequence */
+        opacity: 0; /* Start hidden */
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div id="particles-bg"></div>
+
+  <!-- Wrapper to ensure centering works -->
+  <div class="w-full min-h-screen flex items-center justify-center p-4">
+
+    <!-- Login Form -->
+    <div id="login-view" class="form-box login">
+      <h2 class="title animation" style="--i: 17; --j: 0;">Admin Portal</h2>
+      <form id="login-form">
+        <div class="input-box animation" style="--i: 18; --j: 1;">
+          <input id="login-email" type="email" required />
+          <label for="login-email">Email</label>
+          <i class='bx bxs-envelope'></i>
+        </div>
+        <div class="input-box animation" style="--i: 19; --j: 2;">
+          <input id="login-password" type="password" required />
+          <label for="login-password">Password</label>
+          <i class='bx bxs-lock-alt'></i>
+        </div>
+        <div id="login-error" class="text-red-200 text-sm text-center h-5 mb-2"></div>
+        <button id="login-submit" type="submit" class="btn animation" style="--i: 20; --j: 3;">Sign In</button>
+        <div class="logreg-link animation" style="--i: 21; --j: 4;">
+           <p>Need an admin account? <a id="show-signup">Sign up</a></p>
+        </div>
+      </form>
+    </div>
+
+    <!-- Signup Form -->
+    <div id="signup-view" class="form-box register hidden">
+      <h2 class="title animation" style="--i: 17; --j: 0;">Admin Registration</h2>
+      <form id="signup-form">
+        <div class="input-box animation" style="--i: 18; --j: 1;">
+          <input id="signup-name" type="text" required />
+          <label for="signup-name">Full Name</label>
+           <i class='bx bxs-user'></i>
+        </div>
+        <div class="input-box animation" style="--i: 19; --j: 2;">
+          <input id="signup-email" type="email" required />
+          <label for="signup-email">Email</label>
+           <i class='bx bxs-envelope'></i>
+        </div>
+        <div class="input-box animation" style="--i: 20; --j: 3;">
+          <input id="signup-password" type="password" required />
+          <label for="signup-password">Password</label>
+          <i class='bx bxs-lock-alt'></i>
+        </div>
+         <div id="signup-error" class="text-red-200 text-sm text-center h-5 mb-2"></div>
+        <button id="signup-submit" type="submit" class="btn animation" style="--i: 21; --j: 4;">Create Account</button>
+         <div class="logreg-link animation" style="--i: 22; --j: 5;">
+           <p>Already have an account? <a id="show-login">Sign in</a></p>
+        </div>
+      </form>
+    </div>
+
+  </div>
+
+  <script>
+    particlesJS("particles-bg", {
+      particles: {
+        number: { value: 50 },
+        color: { value: "#ffffff" },
+        opacity: { value: 0.3 },
+        size: { value: 3 },
+        line_linked: { enable: true, color: "#ffffff", opacity: 0.2 },
+        move: { enable: true, speed: 1 }
+      },
+      interactivity: {
+        events: { onhover: { enable: true, mode: "repulse" } },
+        modes: { repulse: { distance: 100 } }
+      }
+    });
+
+    const loginView = document.getElementById("login-view");
+    const signupView = document.getElementById("signup-view");
+    // Function to reset animations when switching forms
+    const resetAnimations = (viewToShow) => {
+        const animations = viewToShow.querySelectorAll('.animation');
+        animations.forEach(el => {
+            el.style.animation = 'none'; // Remove existing animation
+            el.offsetHeight; /* Trigger reflow */
+            el.style.animation = ''; // Re-add animation defined in CSS
+        });
+    };
+
+    document.getElementById("show-signup").onclick = () => {
+      loginView.classList.add("hidden");
+      signupView.classList.remove("hidden");
+      resetAnimations(signupView); // Reset animations for signup view
+    };
+    document.getElementById("show-login").onclick = () => {
+      signupView.classList.add("hidden");
+      loginView.classList.remove("hidden");
+      resetAnimations(loginView); // Reset animations for login view
+    };
+
+
+    // --- Simplified API_URL ---
+    // Since Flask is now serving both the API and the HTML,
+    // we can use a relative path. This works on localhost and ngrok!
+    const API_URL = "/api";
+    
+    document.getElementById("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("login-email").value;
+      const password = document.getElementById("login-password").value;
+      const errorDiv = document.getElementById("login-error");
+      const submitBtn = document.getElementById("login-submit");
+      errorDiv.textContent = "";
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Signing In..."; // Use textContent for buttons
+      try {
+        const res = await fetch(`${API_URL}/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
+        
+        // --- ROBUST ERROR HANDLING ---
+        if (!res.ok) {
+            let errorMsg = `${res.status}: ${res.statusText}`;
+            try {
+                const errorData = await res.json();
+                errorMsg = errorData.error || errorMsg;
+            } catch (e) {
+                // Response was not JSON
+            }
+            throw new Error(errorMsg);
+        }
+        // --- END OF FIX ---
+
+        const data = await res.json();
+        if (data.user.role !== "admin") throw new Error("Access denied. Admins only.");
+        
+        // --- CHANGED: Use sessionStorage instead of localStorage ---
+        sessionStorage.setItem("timetable-user", JSON.stringify(data.user));
+        
+        window.location.href = "index.html";
+      } catch (err) {
+        errorDiv.textContent = err.message;
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Sign In"; // Use textContent for buttons
+      }
+    });
+
+    document.getElementById("signup-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("signup-name").value;
+      const email = document.getElementById("signup-email").value;
+      const password = document.getElementById("signup-password").value;
+      const errorDiv = document.getElementById("signup-error");
+      const submitBtn = document.getElementById("signup-submit");
+      errorDiv.textContent = "";
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Creating..."; // Use textContent for buttons
+      try {
+        const res = await fetch(`${API_URL}/admin/signup`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password })
+        });
+        
+        // --- ROBUST ERROR HANDLING ---
+        if (!res.ok) {
+            let errorMsg = `${res.status}: ${res.statusText}`;
+            try {
+                const errorData = await res.json();
+                errorMsg = errorData.error || errorMsg;
+            } catch (e) {
+                // Response was not JSON
+            }
+            throw new Error(errorMsg);
+        }
+        // --- END OF FIX ---
+
+        const data = await res.json();
+        
+        // --- CHANGED: Use sessionStorage instead of localStorage ---
+        sessionStorage.setItem("timetable-user", JSON.stringify(data.user));
+        
+        window.location.href = "index.html";
+      } catch (err) {
+        errorDiv.textContent = err.message;
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Create Account"; // Use textContent for buttons
+      }
+    });
+  </script>
+</body>
+</html>

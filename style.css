@@ -1,0 +1,510 @@
+@font-face {
+    font-family: "Geist Sans";
+    src: url("https://assets.codepen.io/605876/GeistVF.ttf") format("truetype");
+}
+
+/* Add smooth scrolling behavior */
+html {
+    scroll-behavior: smooth;
+}
+
+/* --- New Background Animation --- */
+body {
+    font-family: 'Inter', sans-serif; /* Keep the font */
+    background-image: url('timetable.jpg'); /* Use timetable.jpg */
+    background-size: cover; /* Initial size adjusted slightly for effect */
+    -webkit-animation: slidein 100s;
+    animation: slidein 100s;
+    -webkit-animation-fill-mode: forwards;
+    animation-fill-mode: forwards;
+    -webkit-animation-iteration-count: infinite;
+    animation-iteration-count: infinite;
+    -webkit-animation-direction: alternate;
+    animation-direction: alternate;
+     /* Ensure content stays above the background */
+    position: relative;
+    z-index: 0;
+    min-height: 100vh; /* Ensure body takes full height */
+    margin: 0; /* Reset default margin */
+}
+
+@-webkit-keyframes slidein {
+    from { background-position: top; background-size: 150%; } /* Adjusted start size */
+    to { background-position: -100px 0px; background-size: 130%; } /* Adjusted end size */
+}
+
+@keyframes slidein {
+    from { background-position: top; background-size: 150%; } /* Adjusted start size */
+    to { background-position: -100px 0px; background-size: 130%; } /* Adjusted end size */
+}
+
+/* Optional: Add a subtle overlay for readability if needed */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(255, 255, 255, 0.7); /* Light overlay */
+    z-index: -1; /* Place behind content but above background */
+}
+
+
+#app-root > .container {
+    animation: fadeIn 0.8s ease-in-out forwards;
+     /* Ensure container background doesn't interfere */
+    background: transparent;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Push Button Styles --- */
+.push-button {
+    all: unset;
+    cursor: pointer;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+    position: relative;
+    border-radius: 999vw;
+    background-color: rgba(0, 0, 0, 0.75);
+    box-shadow: -0.15em -0.15em 0.15em -0.075em rgba(5, 5, 5, 0.25),
+        0.0375em 0.0375em 0.0675em 0 rgba(5, 5, 5, 0.1);
+    font-size: 1rem; /* Base font size for buttons */
+}
+
+.push-button:disabled {
+    cursor: not-allowed;
+    filter: grayscale(0.8);
+    opacity: 0.7;
+}
+
+.push-button::after {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    width: calc(100% + 0.3em);
+    height: calc(100% + 0.3em);
+    top: -0.15em;
+    left: -0.15em;
+    border-radius: inherit;
+    background: linear-gradient(-135deg,
+            rgba(5, 5, 5, 0.5),
+            transparent 20%,
+            transparent 100%);
+    filter: blur(0.0125em);
+    opacity: 0.25;
+    mix-blend-mode: multiply;
+}
+
+.push-button .button-outer {
+    position: relative;
+    z-index: 1;
+    border-radius: inherit;
+    transition: box-shadow 300ms ease;
+    will-change: box-shadow;
+    box-shadow: 0 0.05em 0.05em -0.01em rgba(5, 5, 5, 1),
+        0 0.01em 0.01em -0.01em rgba(5, 5, 5, 0.5),
+        0.15em 0.3em 0.1em -0.01em rgba(5, 5, 5, 0.25);
+}
+
+.push-button:hover:not(:disabled) .button-outer {
+    box-shadow: 0 0 0 0 rgba(5, 5, 5, 1), 0 0 0 0 rgba(5, 5, 5, 0.5),
+        0 0 0 0 rgba(5, 5, 5, 0.25);
+}
+
+.button-inner {
+    position: relative;
+    z-index: 1;
+    border-radius: inherit;
+    padding: 0.5em 1.2em;
+    background-image: linear-gradient(135deg, rgba(230, 230, 230, 1), rgba(180, 180, 180, 1));
+    transition: box-shadow 300ms ease, clip-path 250ms ease, background-image 250ms ease, transform 250ms ease;
+    will-change: box-shadow, clip-path, background-image, transform;
+    overflow: clip;
+    clip-path: inset(0 0 0 0 round 999vw);
+    box-shadow:
+        /* 1 */ 0 0 0 0 inset rgba(5, 5, 5, 0.1),
+        /* 2 */ -0.05em -0.05em 0.05em 0 inset rgba(5, 5, 5, 0.25),
+        /* 3 */ 0 0 0 0 inset rgba(5, 5, 5, 0.1),
+        /* 4 */ 0 0 0.05em 0.2em inset rgba(255, 255, 255, 0.25),
+        /* 5 */ 0.025em 0.05em 0.1em 0 inset rgba(255, 255, 255, 1),
+        /* 6 */ 0.12em 0.12em 0.12em inset rgba(255, 255, 255, 0.25),
+        /* 7 */ -0.075em -0.25em 0.25em 0.1em inset rgba(5, 5, 5, 0.25);
+}
+
+.push-button:hover:not(:disabled) .button-inner {
+    clip-path: inset(clamp(1px, 0.0625em, 2px) clamp(1px, 0.0625em, 2px) clamp(1px, 0.0625em, 2px) clamp(1px, 0.0625em, 2px) round 999vw);
+    box-shadow:
+        /* 1 */ 0.1em 0.15em 0.05em 0 inset rgba(5, 5, 5, 0.75),
+        /* 2 */ -0.025em -0.03em 0.05em 0.025em inset rgba(5, 5, 5, 0.5),
+        /* 3 */ 0.25em 0.25em 0.2em 0 inset rgba(5, 5, 5, 0.5),
+        /* 4 */ 0 0 0.05em 0.5em inset rgba(255, 255, 255, 0.15),
+        /* 5 */ 0 0 0 0 inset rgba(255, 255, 255, 1),
+        /* 6 */ 0.12em 0.12em 0.12em inset rgba(255, 255, 255, 0.25),
+        /* 7 */ -0.075em -0.12em 0.2em 0.1em inset rgba(5, 5, 5, 0.25);
+}
+
+.button-inner span {
+    position: relative;
+    z-index: 4;
+    letter-spacing: -0.05em;
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0);
+    background-image: linear-gradient(135deg, rgba(25, 25, 25, 1), rgba(75, 75, 75, 1));
+    -webkit-background-clip: text;
+    background-clip: text;
+    transition: transform 250ms ease;
+    display: block;
+    will-change: transform;
+    text-shadow: rgba(0, 0, 0, 0.1) 0 0 0.1em;
+    -webkit-user-select: none;  -moz-user-select: none; -ms-user-select: none; user-select: none;
+}
+
+.push-button:hover:not(:disabled) .button-inner span { transform: scale(0.975); }
+.push-button:active:not(:disabled) .button-inner { transform: scale(0.975); }
+
+/* Color Variants */
+.push-button[data-color="indigo"] .button-inner, .push-button[data-color="active"] .button-inner {
+    background-image: linear-gradient(135deg, #818cf8, #4f46e5);
+}
+.push-button[data-color="green"] .button-inner {
+     background-image: linear-gradient(135deg, #4ade80, #16a34a);
+}
+.push-button[data-color="red"] .button-inner {
+     background-image: linear-gradient(135deg, #f87171, #ef4444);
+}
+.push-button[data-color="blue"] .button-inner {
+    background-image: linear-gradient(135deg, #60a5fa, #2563eb);
+}
+
+.push-button:not([data-color="default"]) .button-inner span {
+     background-image: linear-gradient(135deg, #ffffff, #e0e7ff);
+}
+
+/* --- New Action Button Styles --- */
+.action-button {
+    height: 48px;
+    padding: 0;
+    display: grid;
+    border-radius: 8px;
+    border: 2px solid black;
+    letter-spacing: 0.25px;
+    cursor: pointer;
+    position: relative;
+    background: black;
+    color: white;
+    font-family: "Geist Sans", "SF Pro Text", "SF Pro Icons", "AOS Icons", "Helvetica Neue", Helvetica, Arial, sans-serif, system-ui;
+    font-weight: 80;
+    outline-color: hsl(75 100% 45%);
+    outline-offset: 0.25rem;
+}
+
+.action-button:disabled {
+    filter: grayscale(1);
+    cursor: not-allowed;
+}
+.action-button:disabled:is(:hover, :focus-visible) {
+    --active: 0;
+}
+
+.action-button:is(:hover, :focus-visible) {
+    --active: 1;
+}
+
+.action-button:active {
+    --pressed: 1;
+}
+
+.action-button > span:nth-of-type(1) {
+    height: 100%;
+    width: 100%;
+    border-radius: 8px;
+    position: absolute;
+    inset: 0;
+    scale: calc(1 - (var(--pressed, 0) * 0.05));
+    transition: scale 0.1s;
+}
+
+.action-button:is(:hover, :focus-visible) .container {
+    width: 100%;
+}
+
+.action-button .container {
+    --mask-image: url(https://assets.codepen.io/605876/chev-mask_1.png);
+    --spread: 24px;
+    --size: 28px;
+    width: 58px;
+    height: 100%;
+    background: hsl(75 100% 65%); /* Default: lime */
+    position: absolute;
+    left: 0;
+    transition: width 0.25s;
+    border-radius: 6px;
+    box-shadow: 0 10px 10px -5px hsl(0 0% 0% / 0.5);
+    container-type: inline-size;
+}
+
+/* Color variants */
+.action-button[data-color="indigo"] .container {
+     background: #6366f1; /* Indigo */
+}
+
+.action-button .primary {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: hsl(0 0% 0% / 0.15);
+    z-index: 2;
+    mask: var(--mask-image) 50% 50% / var(--size) var(--size) no-repeat;
+    container-type: inline-size;
+}
+
+.action-button :where(.primary, .complimentary)::after {
+    --distance: calc(100cqi + 100%);
+    content: "";
+    height: calc(var(--size) * 4);
+    aspect-ratio: 1;
+    position: absolute;
+    left: 0%;
+    top: 50%;
+    translate: -50% -50%;
+    background: radial-gradient(hsl(0 0% 0%), transparent);
+    animation: fly-by calc((2 - var(--active, 0)) * 1s) infinite linear;
+}
+
+@keyframes fly-by {
+    0% { translate: -100% -50%; }
+    100% { translate: var(--distance) -50%; }
+}
+
+.action-button .complimentary {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: var(--active, 0);
+    transition: opacity 0.25s;
+    background: hsl(0 0% 0% / 0.15);
+    mask:
+        var(--mask-image) calc(50% - (var(--spread) * 1)) 50% / var(--size) var(--size) no-repeat,
+        var(--mask-image) calc(50% - (var(--spread) * 2)) 50% / var(--size) var(--size) no-repeat,
+        var(--mask-image) calc(50% - (var(--spread) * 3)) 50% / var(--size) var(--size) no-repeat,
+        var(--mask-image) calc(50% + (var(--spread) * 1)) 50% / var(--size) var(--size) no-repeat,
+        var(--mask-image) calc(50% + (var(--spread) * 2)) 50% / var(--size) var(--size) no-repeat,
+        var(--mask-image) calc(50% + (var(--spread) * 3)) 50% / var(--size) var(--size) no-repeat;
+}
+
+.action-button > span:nth-of-type(2) {
+    padding: 0 1.1rem 0 calc(58px + 1.1rem);
+    display: grid;
+    place-items: center;
+    height: 100%;
+}
+
+/* --- Sparkly Button Styles --- */
+:root {
+    --glitter: url("https://assets.codepen.io/13471/silver-glitter-background.png");
+}
+
+.sparkles {
+    --clr: 260; /* Default color (purple-ish) */
+    --shadows: 0%;
+    --shadowl: 0%;
+
+    /* Adjust font size as needed */
+    font-size: 1rem; 
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    border-radius: 99vw;
+    background: linear-gradient(
+        0deg,
+        hsla(var(--clr), 100%, 70%) 0%,
+        hsla(var(--clr), 100%, 65%) 5%,
+        hsla(var(--clr), 80%, 35%) 15%,
+        hsla(var(--clr), 70%, 30%) 25%,
+        hsla(var(--clr), 25%, 0%) 50%,
+        hsla(var(--clr), 25%, 12%) 90%
+    );
+    background-size: 200% 300%;
+    background-position: 0% 0%;
+    box-shadow: inset 0 0 2px hsla(var(--clr), 30%, 20%);
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    place-items: center;
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+    transform: translate(0px);
+    cursor: pointer;
+    transition: all 0.5s cubic-bezier(0.77, 0, 0.18, 1);
+
+    box-shadow: 0 -0.5em 0.5em transparent, 0 0.5em 0.5em transparent, 0 0.5em 0.5em transparent, 0 0.5em 0.5em transparent,
+        0 0.25em 0.3em -0.2em hsla(var(--clr), 0%, 0%, 0.5),
+        0 0.35em 0.75em hsla(var(--clr), 0%, 0%, 0.75);
+     border: none; /* Remove default border */
+}
+
+ .sparkles:disabled {
+    cursor: not-allowed;
+    filter: grayscale(0.8);
+    opacity: 0.7;
+}
+
+.sparkles::before,
+.sparkles::after {
+    --gradientPos: 50% 100%;
+    content: " ";
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    height: 100%;
+    transition: inherit;
+    border-radius: 99vw;
+}
+
+.sparkles:before {
+    inset: 0;
+    position: absolute;
+    transform: translate3d(0, 0, 0.01px);
+    border-radius: inherit;
+
+    background-image: var(--glitter), var(--glitter),
+        linear-gradient(180deg, black 0%, white 80%);
+    background-size: 300px 170px, 280px 130px, 200% 200%;
+    background-blend-mode: multiply, multiply, overlay;
+    background-position: 0px 0px, 0px 0px, var(--gradientPos);
+    background-repeat: repeat;
+
+    mix-blend-mode: color-dodge;
+    filter: brightness(2) contrast(.75);
+    animation: bubble 20s linear infinite;
+    animation-play-state: paused;
+    opacity: 0.5;
+    box-shadow: inset 0 -8px 10px -7px hsla(var(--clr), 70%, 80%, 0.75);
+}
+
+.sparkles:after {
+    background-image: radial-gradient(
+            ellipse at center 70%,
+            hsla(var(--clr), 100%, 99%, 0.8) 5%,
+            hsla(var(--clr), 90%, 80%, 1) 20%,
+            transparent 50%,
+            transparent 200%
+        ),
+        linear-gradient(
+            90deg,
+            hsla(var(--clr), 80%, 10%, 1) -10%,
+            transparent 25%,
+            transparent 75%,
+            hsla(var(--clr), 80%, 10%, 1) 110%
+        );
+    box-shadow: inset 0 0.25em 0.75em rgba(0, 0, 0, 1),
+        inset 0 -0.05em 0.2em rgba(255, 255, 255, 0.4),
+        inset 0 -1px 3px hsla(var(--clr), 80%, 50%, 0.75);
+    background-blend-mode: darken;
+    background-repeat: no-repeat;
+    background-size: 180% 80%, cover;
+    background-position: center 220%;
+    mix-blend-mode: hard-light;
+    filter: blur(5px);
+    opacity: 0;
+}
+
+.sparkles:hover:not(:disabled),
+.sparkles.over:not(:disabled) {
+    --shadows: 90%;
+    --shadowl: 80%;
+    background-position: 100% 100%;
+
+    transition: all 0.2s cubic-bezier(0.17, 0.84, 0.44, 1);
+
+    box-shadow: 0 -0.2em 1.5em hsla(var(--clr), 90%, 50%, 0.3),
+        0 0.5em 2em hsla(var(--clr), 90%, 70%, 0.55),
+        0 0.25em 0.3em -0.2em hsla(var(--clr), 0%, 0%, 1),
+        0 0.35em 0.75em hsla(var(--clr), 0%, 0%, 1),
+        0 0.25em 0.5em -0.3em hsl(var(--clr), 30%, 99%, 1),
+        0 0.25em 0.5em hsla(var(--clr), 20%, 30%, 0.35),
+        inset 0 -2px 5px -2px rgba(255, 255, 255, 0.5);
+}
+
+.sparkles.over:not(:disabled) {
+    transition-duration: 2s;
+}
+
+.sparkles:hover:not(:disabled):before,
+.sparkles.over:not(:disabled):before {
+    --gradientPos: 50% 50%;
+    animation-play-state: running;
+    filter: brightness(2) contrast(1);
+    box-shadow: inset 0 -5px 10px -4px hsla(var(--clr), 70%, 80%, 0.3);
+    opacity: .8;
+}
+
+.sparkles:hover:not(:disabled):after,
+.sparkles.over:not(:disabled):after {
+    opacity: .8;
+    transform: translateY(0px);
+}
+
+.sparkles span {
+    grid-column: 1;
+    grid-row: 1;
+    background-image: linear-gradient(
+        hsl(calc(var(--clr) - 43), 27%, 85%) 0%,
+        hsl(calc(var(--clr) - 60), 22%, 80%) 19%,
+        hsl(calc(var(--clr) - 50), 20%, 75%) 30%,
+        hsl(calc(var(--clr) - 52), 36%, 98%) 43%,
+        hsl(var(--clr), 70%, 70%, 1) 51%,
+        hsl(var(--clr), 50%, 85%, 1) 52%,
+        rgb(255, 255, 255) 100%
+    );
+    background-size: 1em 3.45em;
+    color: rgb(214, 222, 226);
+    -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text;
+    background-clip: text; /* Standard property */
+    filter: drop-shadow(0 0 0.05em rgba(0,0,0,0.5)) drop-shadow(0 0.05em 0.05em rgba(0,0,0,0.5));
+    transition-timing-function: inherit;
+    transition-duration: inherit;
+    transition-delay: 0s;
+    padding: 0.75em 1.5em; /* Match text padding */
+    transform: translateY(0);
+    z-index: 10;
+}
+
+.sparkles:hover:not(:disabled) span,
+.sparkles:active:not(:disabled) span,
+.sparkles.over:not(:disabled) span {
+    background-position-y: -100%;
+}
+
+.sparkles:active:not(:disabled) {
+    transform: translateY(0.075em);
+    box-shadow: 0 -0.2em 1.5em hsla(var(--clr), 90%, 50%, 0.4),
+        0 0.5em 2em hsla(var(--clr), 90%, 70%, 0.65),
+        0 0.15em 0.3em -0.2em hsla(var(--clr), 0%, 0%, 1),
+        0 0.25em 0.75em hsla(var(--clr), 0%, 0%, 1),
+        0 0.25em 0.5em -0.3em hsl(var(--clr), 30%, 99%, 1),
+        0 0.25em 0.5em hsla(var(--clr), 20%, 30%, 0.45),
+        inset 0 -2px 5px -2px rgba(255, 255, 255, 0.65);
+    transition-duration: 0.1s;
+}
+
+.sparkles:active:not(:disabled):before,
+.sparkles:active:not(:disabled):after {
+    opacity: 1;
+    filter: brightness(3) contrast(.75);
+    animation-duration: 8s;
+}
+.sparkles:active:not(:disabled):after {
+    filter: brightness(1.35) contrast(.8) blur(5px);
+}
+
+@keyframes bubble {
+    0% {
+        background-position: 0px 340px, 0px 130px, var(--gradientPos);
+    }
+    100% {
+        background-position: 0px 0px, 0px 0px, var(--gradientPos);
+    }
+}

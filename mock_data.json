@@ -1,0 +1,243 @@
+{
+    "users": [
+        {
+            "id": 1,
+            "email": "admin@test.com",
+            "password": "admin",
+            "role": "admin",
+            "name": "Admin User"
+        },
+        {
+            "id": 2,
+            "email": "smith@test.com",
+            "password": "password",
+            "role": "lecturer",
+            "name": "Dr. Smith"
+        },
+        {
+            "id": 3,
+            "email": "jones@test.com",
+            "password": "password",
+            "role": "lecturer",
+            "name": "Prof. Jones"
+        },
+        {
+            "id": 4,
+            "email": "davis@test.com",
+            "password": "password",
+            "role": "lecturer",
+            "name": "Ms. Davis"
+        },
+        {
+            "id": 5,
+            "email": "student@test.com",
+            "password": "student",
+            "role": "student",
+            "name": "Test Student",
+            "class_id": 1,
+            "division_id": 1
+        }
+    ],
+    "teachers": [
+        {
+            "id": 1,
+            "name": "Dr. Smith",
+            "user_id": 2
+        },
+        {
+            "id": 2,
+            "name": "Prof. Jones",
+            "user_id": 3
+        },
+        {
+            "id": 3,
+            "name": "Ms. Davis",
+            "user_id": 4
+        },
+        {
+            "id": 4,
+            "name": "Ayush Varma",
+            "user_id": null
+        },
+        {
+            "id": 5,
+            "name": "Piyush Varma",
+            "user_id": null
+        },
+        {
+            "id": 6,
+            "name": "Kshitiz Varma",
+            "user_id": null
+        }
+    ],
+    "rooms": [
+        {
+            "id": 1,
+            "name": "Room 101",
+            "capacity": 50,
+            "type": "Lecture"
+        },
+        {
+            "id": 2,
+            "name": "Room 102",
+            "capacity": 50,
+            "type": "Lecture"
+        },
+        {
+            "id": 3,
+            "name": "Lab A",
+            "capacity": 25,
+            "type": "Lab"
+        },
+        {
+            "id": 4,
+            "name": "Lab B",
+            "capacity": 25,
+            "type": "Lab"
+        }
+    ],
+    "classes": [
+        {
+            "id": 1,
+            "name": "First Year"
+        },
+        {
+            "id": 2,
+            "name": "Second Year"
+        }
+    ],
+    "divisions": [
+        {
+            "id": 1,
+            "name": "A"
+        },
+        {
+            "id": 2,
+            "name": "B"
+        }
+    ],
+    "courses": [
+        {
+            "id": 1,
+            "name": "Intro to CS",
+            "teacher_id": 1,
+            "lectures_per_week": 2,
+            "practicals_per_week": 1,
+            "teacher_name": "Dr. Smith",
+            "class_id": 1,
+            "division_id": 1
+        },
+        {
+            "id": 2,
+            "name": "Data Structures",
+            "teacher_id": 2,
+            "lectures_per_week": 3,
+            "practicals_per_week": 0,
+            "teacher_name": "Prof. Jones",
+            "class_id": 1,
+            "division_id": 1
+        },
+        {
+            "id": 3,
+            "name": "Physics",
+            "teacher_id": 1,
+            "lectures_per_week": 1,
+            "practicals_per_week": 2,
+            "teacher_name": "Dr. Smith",
+            "class_id": 1,
+            "division_id": 2
+        },
+        {
+            "id": 4,
+            "name": "IPMV",
+            "teacher_id": 4,
+            "lectures_per_week": 5,
+            "practicals_per_week": 4,
+            "teacher_name": "Ayush Varma",
+            "class_id": 1,
+            "division_id": 1
+        },
+        {
+            "id": 5,
+            "name": "IPMV",
+            "teacher_id": 4,
+            "lectures_per_week": 5,
+            "practicals_per_week": 4,
+            "teacher_name": "Ayush Varma",
+            "class_id": 1,
+            "division_id": 2
+        },
+        {
+            "id": 6,
+            "name": "IPM",
+            "teacher_id": 5,
+            "lectures_per_week": 5,
+            "practicals_per_week": 4,
+            "teacher_name": "Piyush Varma",
+            "class_id": 2,
+            "division_id": 2
+        }
+    ],
+    "timeslots": [
+        {
+            "id": 7,
+            "day_of_week": "Wednesday",
+            "start_time": "13:00:00",
+            "end_time": "14:00:00"
+        },
+        {
+            "id": 10,
+            "day_of_week": "Friday",
+            "start_time": "10:00:00",
+            "end_time": "11:00:00"
+        },
+        {
+            "id": 1,
+            "day_of_week": "Monday",
+            "start_time": "09:00:00",
+            "end_time": "10:00:00"
+        },
+        {
+            "id": 6,
+            "day_of_week": "Wednesday",
+            "start_time": "10:00:00",
+            "end_time": "11:00:00"
+        },
+        {
+            "id": 2,
+            "day_of_week": "Monday",
+            "start_time": "10:00:00",
+            "end_time": "11:00:00"
+        },
+        {
+            "id": 4,
+            "day_of_week": "Tuesday",
+            "start_time": "09:00:00",
+            "end_time": "10:00:00"
+        },
+        {
+            "id": 5,
+            "day_of_week": "Tuesday",
+            "start_time": "11:00:00",
+            "end_time": "12:00:00"
+        },
+        {
+            "id": 9,
+            "day_of_week": "Friday",
+            "start_time": "09:00:00",
+            "end_time": "10:00:00"
+        },
+        {
+            "id": 8,
+            "day_of_week": "Thursday",
+            "start_time": "14:00:00",
+            "end_time": "15:00:00"
+        },
+        {
+            "id": 3,
+            "day_of_week": "Monday",
+            "start_time": "11:00:00",
+            "end_time": "12:00:00"
+        }
+    ]
+}
